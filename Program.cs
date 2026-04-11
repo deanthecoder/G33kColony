@@ -11,6 +11,7 @@
 using System;
 using Avalonia;
 using Avalonia.Controls;
+using G33kColony.Views;
 
 namespace G33kColony;
 
@@ -23,7 +24,7 @@ internal static class Program
     }
 
     public static AppBuilder BuildAvaloniaApp() =>
-        AppBuilder.Configure<Views.App>()
+        AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .LogToTrace();
 }

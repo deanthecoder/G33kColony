@@ -42,4 +42,10 @@ public partial class MainWindow : Window
 
     private static void ShowAboutDialog() =>
         (Application.Current?.DataContext as AppViewModel)?.AboutCommand.Execute(null);
+
+    protected override void OnClosed(EventArgs e)
+    {
+        m_viewModel.Dispose();
+        base.OnClosed(e);
+    }
 }

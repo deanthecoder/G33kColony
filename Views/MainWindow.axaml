@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="clr-namespace:G33kColony.Views"
         xmlns:viewModels="clr-namespace:G33kColony.ViewModels"
         mc:Ignorable="d"
         x:Class="G33kColony.Views.MainWindow"
@@ -19,6 +20,14 @@
 
   <DockPanel>
     <Menu DockPanel.Dock="Top">
+      <MenuItem Header="_View">
+        <MenuItem Header="_Home pheromones"
+                  ToggleType="CheckBox"
+                  IsChecked="{Binding IsHomePheromoneVisible, Mode=TwoWay}" />
+        <MenuItem Header="_Food pheromones"
+                  ToggleType="CheckBox"
+                  IsChecked="{Binding IsFoodPheromoneVisible, Mode=TwoWay}" />
+      </MenuItem>
       <MenuItem Header="_Help">
         <MenuItem Header="_About G33kColony"
                   Click="OnAboutMenuItemClick" />
@@ -26,22 +35,181 @@
     </Menu>
 
     <Grid Background="#171717">
-      <StackPanel HorizontalAlignment="Center"
-                  VerticalAlignment="Center"
-                  Spacing="12">
-        <TextBlock HorizontalAlignment="Center"
-                   FontSize="34"
-                   FontWeight="SemiBold"
-                   Text="{Binding AppName}" />
-        <TextBlock HorizontalAlignment="Center"
-                   FontSize="16"
-                   Foreground="#C8C8C8"
-                   Text="{Binding Tagline}" />
-        <Button HorizontalAlignment="Center"
-                Margin="0,24,0,0"
-                Content="About"
-                Click="OnAboutButtonClick" />
-      </StackPanel>
+      <views:SimulationView World="{Binding World}"
+                            Colony="{Binding Colony}"
+                            ShowHomePheromones="{Binding IsHomePheromoneVisible}"
+                            ShowFoodPheromones="{Binding IsFoodPheromoneVisible}"
+                            FrameNumber="{Binding FrameNumber}" />
+
+      <Border HorizontalAlignment="Right"
+              VerticalAlignment="Top"
+              Margin="12"
+              Padding="10"
+              Background="#D8202020"
+              BorderBrush="#5AFFFFFF"
+              BorderThickness="1"
+              CornerRadius="6">
+        <StackPanel Width="230"
+                    Spacing="8">
+          <TextBlock FontSize="13"
+                     FontWeight="SemiBold"
+                     Text="Controls"
+                     ToolTip.Tip="Tune the running simulation." />
+
+          <Grid ColumnDefinitions="*,Auto,Auto">
+            <TextBox Grid.Column="0"
+                     Text="{Binding SeedText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Watermark="Seed"
+                     ToolTip.Tip="Seed used when starting a new simulation. Edit it, then press Go." />
+            <Button Grid.Column="1"
+                    Margin="6,0,0,0"
+                    MinWidth="46"
+                    Content="New"
+                    Command="{Binding NewSeedCommand}"
+                    ToolTip.Tip="Generate a random seed and restart." />
+            <Button Grid.Column="2"
+                    Margin="6,0,0,0"
+                    MinWidth="38"
+                    Content="Go"
+                    Command="{Binding GoCommand}"
+                    ToolTip.Tip="Restart using the current seed and slider values." />
+          </Grid>
+
+          <Grid RowDefinitions="Auto,Auto"
+                ColumnDefinitions="*,Auto">
+            <TextBlock Text="Decay"
+                       ToolTip.Tip="How much pheromone evaporates each tick. Higher values fade trails faster." />
+            <TextBlock Grid.Column="1"
+                       Text="{Binding PheromoneDecayRatePercent, StringFormat={}{0:0.0}%}" />
+            <Slider Grid.Row="1"
+                    Grid.ColumnSpan="2"
+                    Minimum="0.001"
+                    Maximum="0.08"
+                    Value="{Binding PheromoneDecayRate, Mode=TwoWay}"
+                    ToolTip.Tip="Immediate effect. Lower values leave longer trails." />
+          </Grid>
+
+          <Grid RowDefinitions="Auto,Auto"
+                ColumnDefinitions="*,Auto">
+            <TextBlock Text="Trail strength"
+                       ToolTip.Tip="How much pheromone each ant deposits per step." />
+            <TextBlock Grid.Column="1"
+                       Text="{Binding PheromoneDepositAmount, StringFormat={}{0:0.0}}" />
+            <Slider Grid.Row="1"
+                    Grid.ColumnSpan="2"
+                    Minimum="0.1"
+                    Maximum="8"
+                    Value="{Binding PheromoneDepositAmount, Mode=TwoWay}"
+                    ToolTip.Tip="Immediate effect. Higher values make trails brighter." />
+          </Grid>
+
+          <Grid RowDefinitions="Auto,Auto"
+                ColumnDefinitions="*,Auto">
+            <TextBlock Text="Turn randomness"
+                       ToolTip.Tip="Chance that an ant applies a random turn each step." />
+            <TextBlock Grid.Column="1"
+                       Text="{Binding TurnChancePercent, StringFormat={}{0:0}%}" />
+            <Slider Grid.Row="1"
+                    Grid.ColumnSpan="2"
+                    Minimum="0"
+                    Maximum="1"
+                    Value="{Binding TurnChance, Mode=TwoWay}"
+                    ToolTip.Tip="Immediate effect. Higher values make random turns happen more often." />
+          </Grid>
+
+          <Grid RowDefinitions="Auto,Auto"
+                ColumnDefinitions="*,Auto">
+            <TextBlock Text="Turn angle"
+                       ToolTip.Tip="Largest random turn angle in either direction." />
+            <TextBlock Grid.Column="1"
+                       Text="{Binding RandomTurnDegrees, StringFormat={}{0:0} deg}" />
+            <Slider Grid.Row="1"
+                    Grid.ColumnSpan="2"
+                    Minimum="5"
+                    Maximum="75"
+                    Value="{Binding RandomTurnDegrees, Mode=TwoWay}"
+                    ToolTip.Tip="Immediate effect. Higher values let ants bend away from straight paths more strongly." />
+          </Grid>
+
+          <Grid RowDefinitions="Auto,Auto"
+                ColumnDefinitions="*,Auto">
+            <TextBlock Text="Steps per tick"
+                       ToolTip.Tip="How many ant movement steps run each timer tick." />
+            <TextBlock Grid.Column="1"
+                       Text="{Binding StepsPerTick}" />
+            <Slider Grid.Row="1"
+                    Grid.ColumnSpan="2"
+                    Minimum="1"
+                    Maximum="6"
+                    TickFrequency="1"
+                    IsSnapToTickEnabled="True"
+                    Value="{Binding StepsPerTick, Mode=TwoWay}"
+                    ToolTip.Tip="Immediate effect. Higher values make ants move faster." />
+          </Grid>
+
+          <Grid RowDefinitions="Auto,Auto"
+                ColumnDefinitions="*,Auto">
+            <TextBlock Text="Ants"
+                       ToolTip.Tip="Number of ants in the colony. Changing this restarts the simulation." />
+            <TextBlock Grid.Column="1"
+                       Text="{Binding AntCount}" />
+            <Slider Grid.Row="1"
+                    Grid.ColumnSpan="2"
+                    Minimum="25"
+                    Maximum="1000"
+                    TickFrequency="25"
+                    IsSnapToTickEnabled="True"
+                    Value="{Binding AntCount, Mode=TwoWay}"
+                    ToolTip.Tip="Restarts immediately so the new colony size can be applied." />
+          </Grid>
+
+          <Grid RowDefinitions="Auto,Auto"
+                ColumnDefinitions="*,Auto">
+            <TextBlock Text="Ant life"
+                       ToolTip.Tip="Maximum movement steps before an ant respawns at the nest." />
+            <TextBlock Grid.Column="1"
+                       Text="{Binding AntMaximumLife}" />
+            <Slider Grid.Row="1"
+                    Grid.ColumnSpan="2"
+                    Minimum="25"
+                    Maximum="5000"
+                    TickFrequency="25"
+                    IsSnapToTickEnabled="True"
+                    Value="{Binding AntMaximumLife, Mode=TwoWay}"
+                    ToolTip.Tip="Immediate effect. Finding food refreshes an ant's life." />
+          </Grid>
+
+          <Grid RowDefinitions="Auto,Auto"
+                ColumnDefinitions="*,Auto">
+            <TextBlock Text="Food sources"
+                       ToolTip.Tip="Number of food blobs in the world. Changing this restarts the simulation." />
+            <TextBlock Grid.Column="1"
+                       Text="{Binding FoodSourceCount}" />
+            <Slider Grid.Row="1"
+                    Grid.ColumnSpan="2"
+                    Minimum="1"
+                    Maximum="4"
+                    TickFrequency="1"
+                    IsSnapToTickEnabled="True"
+                    Value="{Binding FoodSourceCount, Mode=TwoWay}"
+                    ToolTip.Tip="Restarts immediately so the food blobs can be regenerated." />
+          </Grid>
+
+          <Grid RowDefinitions="Auto,Auto"
+                ColumnDefinitions="*,Auto">
+            <TextBlock Text="Found food"
+                       ToolTip.Tip="Number of food discoveries since the current simulation started." />
+            <TextBlock Grid.Column="1"
+                       Text="{Binding FoodFoundCount}" />
+            <TextBlock Grid.Row="1"
+                       Text="Returned home"
+                       ToolTip.Tip="Number of food-carrying ants that returned home since the current simulation started." />
+            <TextBlock Grid.Row="1"
+                       Grid.Column="1"
+                       Text="{Binding FoodReturnedHomeCount}" />
+          </Grid>
+        </StackPanel>
+      </Border>
     </Grid>
   </DockPanel>
 </Window>

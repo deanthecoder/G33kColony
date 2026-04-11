@@ -48,10 +48,11 @@ Each ant has:
 
 - Leave the nest and perform a biased random walk:
   - maintain general direction (momentum)
-  - apply small random turns
+  - apply small random angle turns that accumulate over time
 - Deposit **home pheromone**
-- Sample nearby cells:
-  - if **food pheromone** is detected, bias movement toward stronger values
+- Sample nearby cells in a 5x5 scent window:
+  - if **food pheromone** is detected, bias movement toward the averaged stronger values
+  - random turns still happen, but become less likely when the food scent is stronger
 - If food is found:
   - pick up food
   - switch to `Returning`
@@ -83,11 +84,11 @@ Each ant has:
 At each simulation tick:
 
 1. Each ant:
-   - samples pheromone levels in a small forward arc
+   - samples pheromone levels in a small 5x5 scent window
    - selects a direction based on:
      - pheromone strength
      - momentum
-     - randomness
+     - small random angle changes
    - moves forward one step
    - deposits pheromone depending on state
 
@@ -111,7 +112,13 @@ Potential overlays:
 - food pheromone
 - home pheromone
 - ant paths / density
-- 
+
+Current first pass:
+- fixed 640x480 world cells
+- bitmap renderer scaled uniformly to the window
+- menu toggles for home and food pheromone visibility
+- top-right controls for seed, restart, decay, trail strength, turn chance, turn angle, simulation speed, ant count, and food source count
+
 ---
 
 ## Design goals
@@ -121,9 +128,9 @@ Potential overlays:
 - Highly tweakable parameters:
   - evaporation rate
   - pheromone strength
-  - turn randomness
+  - turn chance and angle
   - sensor range
-- Clear visualisation of behaviour
+- Clear visualization of behavior
 - Easy extension (multiple colonies, obstacles, etc.)
 
 ---
