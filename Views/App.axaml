@@ -1,0 +1,17 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:G33kColony.ViewModels"
+             x:Class="G33kColony.Views.App"
+             Name="G33kColony"
+             RequestedThemeVariant="Dark"
+             x:DataType="viewModels:AppViewModel">
+  <Application.Styles>
+    <FluentTheme />
+  </Application.Styles>
+
+  <NativeMenu.Menu>
+    <NativeMenu>
+      <NativeMenuItem Header="About G33kColony" Command="{CompiledBinding AboutCommand}" />
+    </NativeMenu>
+  </NativeMenu.Menu>
+</Application>

@@ -1,0 +1,24 @@
+{
+  "ProductName": "G33kColony",
+  "CompanyName": "Dean Edis (DeanTheCoder)",
+  "PublisherUrl": "https://github.com/deanthecoder",
+  "BundleIdentifier": "com.deanthecoder.g33kcolony",
+  "Executable": "G33kColony",
+  "Project": "G33kColony.csproj",
+  "Version": "1.0",
+  "Win": {
+    "InnoScript": "Installer/templates/inno.iss",
+    "IconIco": "Assets/app.ico",
+    "GUID": "{D275294C-2956-45E7-9E80-BF74F8E6EB44}",
+    "RuntimeIdentifier": "win-x64",
+    "InstallOpenAL": false
+  },
+  "Mac": {
+    "RuntimeIdentifiers": [
+      "osx-arm64",
+      "osx-x64"
+    ],
+    "IconIcns": "Assets/app.icns",
+    "InfoPlist": "Installer/templates/Info.plist"
+  }
+}
