@@ -7,6 +7,9 @@ A cross-platform Avalonia ant colony simulation.
 
 ![Ant colony simulation](img/Ants.png)
 
+## Video
+Watch the simulation in action on YouTube: [https://youtu.be/wGD0uD28COw?si=cbYM1CIKxNFs32AP](https://youtu.be/wGD0uD28COw?si=cbYM1CIKxNFs32AP)
+
 ## Purpose
 G33kColony is a small desktop app for watching simple ants create surprisingly organised trails between a nest and nearby food.
 
