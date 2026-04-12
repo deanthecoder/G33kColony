@@ -239,12 +239,12 @@ public class MainWindowViewModelTests
         viewModel.RestartGame();
         var ant = viewModel.Colony.Ants[0];
         var food = viewModel.World.FoodSources[0];
-        ant.MoveTo(food.Position);
-        ant.SetState(AntState.Searching);
+        ant.Position = food.Position;
+        ant.State = AntState.Searching;
         viewModel.Tick();
         ant = viewModel.Colony.Ants[0];
-        ant.MoveTo(viewModel.World.NestPosition);
-        ant.SetState(AntState.Returning);
+        ant.Position = viewModel.World.NestPosition;
+        ant.State = AntState.Returning;
         viewModel.Tick();
 
         Assert.That(viewModel.FoodFoundCount, Is.GreaterThan(0));

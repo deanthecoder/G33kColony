@@ -56,7 +56,7 @@ public sealed class Colony
     private const double MinimumPheromoneStrengthFraction = 0.15;
     private const double RespawnChancePerTick = 0.06;
     private const int SpawnPositionAttempts = 24;
-    private const int PheromoneDropInterval = 4;
+    private const int PheromoneDropInterval = 8;
     private const double AntInteractionRadius = AntRadius * 4;
     private const double AntBucketSize = AntInteractionRadius;
     private readonly List<Ant> m_ants;
@@ -215,7 +215,7 @@ public sealed class Colony
 
         if (ant.State == AntState.Searching && m_world.TryConsumeFood(ant.Position))
         {
-            ant.SetState(AntState.Returning);
+            ant.State = AntState.Returning;
             FoodFoundCount++;
             ant.RefreshLife();
             resetLifeThisTick = true;
@@ -316,7 +316,7 @@ public sealed class Colony
             next = currentPosition.WithDelta(ant.DirectionX * ant.Speed, ant.DirectionY * ant.Speed);
         }
 
-        ant.MoveTo(m_world.Clamp(next));
+        ant.Position = m_world.Clamp(next);
     }
 
     private void ApplyNeighbourRepulsion(Ant ant, ref double movementX, ref double movementY)
@@ -326,7 +326,7 @@ public sealed class Colony
         var antPosition = ant.Position;
         var antX = antPosition.X;
         var antY = antPosition.Y;
-        var interactionRadiusSquared = AntInteractionRadius * AntInteractionRadius;
+        const double interactionRadiusSquared = AntInteractionRadius * AntInteractionRadius;
         var antBucket = GetAntBucketKey(antPosition);
         var bucketRange = (int)Math.Ceiling(AntInteractionRadius / AntBucketSize);
 
@@ -577,7 +577,7 @@ public sealed class Colony
     private bool IsHomeInSampleArea(Ant ant, double angleOffset)
     {
         var samplePosition = GetSamplePosition(ant, angleOffset);
-        var detectionRadius = SensorRadius + NestRadius;
+        const double detectionRadius = SensorRadius + NestRadius;
         return m_world.NestPosition.DistanceSquared(samplePosition) <= detectionRadius * detectionRadius;
     }
 
@@ -684,7 +684,7 @@ public sealed class Colony
 
     private static PheromoneTarget SampleNearbyPheromoneTarget(WorldPoint position, PheromoneField pheromones)
     {
-        var detectionRadius = SensorDistance + SensorRadius + PheromoneBlobRadius;
+        const double detectionRadius = SensorDistance + SensorRadius + PheromoneBlobRadius;
         return pheromones.TryFindStrongest(position, detectionRadius, out var blob)
             ? new PheromoneTarget(blob.Position, true)
             : new PheromoneTarget(WorldPoint.Zero, false);

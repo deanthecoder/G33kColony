@@ -32,7 +32,7 @@ public sealed class World
     /// <summary>
     /// The number of ants each individual food blob can feed before it is depleted.
     /// </summary>
-    public const int FoodAmountPerBlob = 10;
+    private const int FoodAmountPerBlob = 100;
 
     public World()
         : this(DefaultWidth, DefaultHeight)

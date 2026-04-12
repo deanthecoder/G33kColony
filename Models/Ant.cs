@@ -27,7 +27,7 @@ public sealed class Ant
         SetDirection(directionX, directionY);
     }
 
-    public WorldPoint Position { get; private set; }
+    public WorldPoint Position { get; set; }
 
     public double HeadingRadians { get; private set; }
 
@@ -35,7 +35,7 @@ public sealed class Ant
 
     public double DirectionY => Math.Sin(HeadingRadians);
 
-    public AntState State { get; private set; }
+    public AntState State { get; set; }
 
     public bool IsAlive { get; private set; } = true;
 
@@ -49,9 +49,6 @@ public sealed class Ant
 
     public bool ShouldDropPheromone(int dropInterval) =>
         m_stepsSincePheromoneDrop % Math.Max(1, dropInterval) == 0;
-
-    public void SetState(AntState state) =>
-        State = state;
 
     internal void ResetLife(int maximumLife)
     {
@@ -83,7 +80,7 @@ public sealed class Ant
     internal void Respawn(WorldPoint position, double headingRadians, int maximumLife, double speed)
     {
         Position = position;
-        SetState(AntState.Searching);
+        State = AntState.Searching;
         HeadingRadians = NormalizeRadians(headingRadians);
         m_desiredHeadingRadians = HeadingRadians;
         m_stepsSincePheromoneDrop = 0;
@@ -99,7 +96,7 @@ public sealed class Ant
         m_desiredHeadingRadians = HeadingRadians;
     }
 
-    public void SetDirection(double directionX, double directionY)
+    private void SetDirection(double directionX, double directionY)
     {
         if (Math.Abs(directionX) < double.Epsilon && Math.Abs(directionY) < double.Epsilon)
             return;
@@ -129,9 +126,6 @@ public sealed class Ant
         delta = Math.Clamp(delta, -maximumDeltaRadians, maximumDeltaRadians);
         HeadingRadians = NormalizeRadians(HeadingRadians + delta);
     }
-
-    public void MoveTo(WorldPoint position) =>
-        Position = position;
 
     private static double NormalizeRadians(double radians)
     {

@@ -21,8 +21,8 @@ internal sealed class AppSettings : UserSettingsBase, IAppSettings
     public const int MinimumAntCount = 1;
     public const int MaximumAntCount = 2000;
     public const int DefaultAntCount = 500;
-    public const int DefaultAntMaximumLife = 500;
-    public const int DefaultFoodSourceCount = 2;
+    public const int DefaultAntMaximumLife = 700;
+    public const int DefaultFoodSourceCount = 3;
     public const int DefaultStepsPerTick = 1;
     public const double DefaultPheromoneDecayRate = 0.01;
     public const double DefaultPheromoneDepositAmount = 4.0;

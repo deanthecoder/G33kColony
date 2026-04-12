@@ -242,7 +242,7 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(FoodRemaining));
     }
 
-    public void NewSeed()
+    private void NewSeed()
     {
         SeedText = Random.Shared.Next(1, int.MaxValue).ToString();
         RestartGame();
@@ -260,7 +260,7 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
         m_settings?.Dispose();
     }
 
-    public void ResetSettings()
+    private void ResetSettings()
     {
         ApplyDefaultSettingsToFields();
         RestartGame();

@@ -181,7 +181,7 @@ public class SimulationModelTests
             TurnChance = 0
         };
         var ant = colony.AddAnt(new WorldPoint(40, 40), 1, 0);
-        ant.SetState(AntState.Returning);
+        ant.State = AntState.Returning;
         world.HomePheromones.Add(new WorldPoint(48, 31), 8, 10);
 
         colony.Tick();
@@ -198,7 +198,7 @@ public class SimulationModelTests
             TurnChance = 1
         };
         var ant = colony.AddAnt(new WorldPoint(40, 40), 1, 0);
-        ant.SetState(AntState.Returning);
+        ant.State = AntState.Returning;
         world.HomePheromones.Add(new WorldPoint(48, 31), 8, 10);
 
         colony.Tick();
@@ -218,7 +218,7 @@ public class SimulationModelTests
             ? Colony.NestRadius + Colony.SensorDistance + 2
             : -(Colony.NestRadius + Colony.SensorDistance + 2);
         var ant = colony.AddAnt(world.Clamp(world.NestPosition.WithDelta(horizontalOffset, 0)), horizontalOffset > 0 ? -1 : 1, 0);
-        ant.SetState(AntState.Returning);
+        ant.State = AntState.Returning;
 
         colony.Tick();
 
@@ -242,7 +242,7 @@ public class SimulationModelTests
         var start = worldWithFoodScent.Clamp(worldWithFoodScent.NestPosition.WithDelta(horizontalOffset, 0));
         var headingX = horizontalOffset > 0 ? 1 : -1;
         var antWithFoodScent = colonyWithFoodScent.AddAnt(start, headingX, 0);
-        antWithFoodScent.SetState(AntState.Returning);
+        antWithFoodScent.State = AntState.Returning;
         worldWithFoodScent.FoodPheromones.Add(antWithFoodScent.Position.WithDelta(8, -9), 8, 10);
 
         var worldWithoutFoodScent = new World(240, 240, 0, 12);
@@ -251,7 +251,7 @@ public class SimulationModelTests
             TurnChance = 0
         };
         var antWithoutFoodScent = colonyWithoutFoodScent.AddAnt(start, headingX, 0);
-        antWithoutFoodScent.SetState(AntState.Returning);
+        antWithoutFoodScent.State = AntState.Returning;
 
         colonyWithFoodScent.Tick();
         colonyWithoutFoodScent.Tick();
@@ -270,7 +270,7 @@ public class SimulationModelTests
         };
         var horizontalOffset = world.NestPosition.X + 30 < world.Width ? 30 : -30;
         var returningAnt = colony.AddAnt(world.Clamp(world.NestPosition.WithDelta(horizontalOffset, 0)), horizontalOffset > 0 ? -1 : 1, 0);
-        returningAnt.SetState(AntState.Returning);
+        returningAnt.State = AntState.Returning;
         var blockerOffset = world.NestPosition.X + 24 < world.Width ? 24 : -24;
         colony.AddAnt(world.Clamp(world.NestPosition.WithDelta(blockerOffset, 0)), blockerOffset > 0 ? 1 : -1, 0);
         var distanceBefore = returningAnt.Position.DistanceSquared(world.NestPosition);
@@ -367,7 +367,7 @@ public class SimulationModelTests
             TurnChance = 0
         };
         var ant = colony.AddAnt(world.NestPosition.WithDelta(0, 1), 0, -1);
-        ant.SetState(AntState.Returning);
+        ant.State = AntState.Returning;
 
         colony.Tick();
 
