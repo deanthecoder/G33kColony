@@ -425,7 +425,7 @@ public class SimulationModelTests
 
         Assert.That(expiringAnt.IsAlive, Is.True);
         Assert.That(expiringAnt.Position, Is.Not.EqualTo(world.NestPosition));
-        Assert.That(expiringAnt.Position.DistanceSquared(world.NestPosition), Is.EqualTo(Colony.SpawnRadius * Colony.SpawnRadius).Within(0.001));
+        Assert.That(expiringAnt.Position.DistanceSquared(world.NestPosition), Is.EqualTo(Colony.NestRadius * Colony.NestRadius).Within(0.001));
         Assert.That(expiringAnt.LifeRemaining, Is.EqualTo(1));
     }
 
@@ -442,7 +442,7 @@ public class SimulationModelTests
         Assert.That(colony.Ants.Count(ant => ant.IsAlive), Is.EqualTo(2));
         Assert.That(colony.Ants[0].Position, Is.EqualTo(world.NestPosition));
         Assert.That(colony.Ants[1].Position, Is.Not.EqualTo(world.NestPosition));
-        Assert.That(colony.Ants[1].Position.DistanceSquared(world.NestPosition), Is.EqualTo(Colony.SpawnRadius * Colony.SpawnRadius).Within(0.001));
+        Assert.That(colony.Ants[1].Position.DistanceSquared(world.NestPosition), Is.EqualTo(Colony.NestRadius * Colony.NestRadius).Within(0.001));
     }
 
     [Test]

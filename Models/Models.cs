@@ -253,7 +253,7 @@ public sealed class PheromoneBlob
 public sealed class PheromoneField
 {
     private const double BucketSize = 24;
-    private const float MinimumStrength = 0.01f;
+    private const float MinimumStrength = 0.03f;
     private readonly List<PheromoneBlob> m_blobs = [];
     private readonly Dictionary<(int X, int Y), List<PheromoneBlob>> m_buckets = [];
 
@@ -425,7 +425,7 @@ public sealed class Colony
     private const double DefaultStepDistance = 1.4;
     private const double PheromoneBlobRadius = 2.5;
     private const double MaximumHeadingTurnRadians = Math.PI / 9;
-    private const double AntVariationFraction = 0.2;
+    private const double AntVariationFraction = 0.4;
     private const double MinimumPheromoneStrengthFraction = 0.15;
     private const double RespawnChancePerTick = 0.06;
     private const int SpawnPositionAttempts = 24;
@@ -582,7 +582,6 @@ public sealed class Colony
             ant.SetState(AntState.Returning);
             FoodFoundCount++;
             ant.RefreshLife();
-            ant.Turn(Math.PI);
             resetLifeThisTick = true;
 
             if (IsFirstAnt(ant) && !m_hasFirstAntFoundFood)
