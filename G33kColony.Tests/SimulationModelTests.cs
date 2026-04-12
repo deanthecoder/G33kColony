@@ -388,7 +388,6 @@ public class SimulationModelTests
         };
         var movingAnt = colony.AddAnt(new WorldPoint(40, 40), 1, 0);
         var blockingAnt = colony.AddAnt(new WorldPoint(41.4, 40), 1, 0);
-        var distanceBefore = movingAnt.Position.DistanceSquared(blockingAnt.Position);
 
         colony.Tick();
 
@@ -448,7 +447,6 @@ public class SimulationModelTests
             TurnChance = 0
         };
         var expiringAnt = colony.AddAnt(world.NestPosition, 1, 0);
-        var blockingAnt = colony.AddAnt(world.NestPosition.WithDelta(1, 0), 1, 0);
 
         colony.Tick();
         for (var i = 0; i < 500 && !expiringAnt.IsAlive; i++)
@@ -502,7 +500,7 @@ public class SimulationModelTests
     [Test]
     public void AntReturnsHomeAfterFindingFoodByFollowingHomeBlobs()
     {
-        var world = new World(80, 80, 1, 1);
+        var world = new World(80, 80);
         var colony = new Colony(world, 0, 7)
         {
             TurnChance = 0
@@ -531,7 +529,7 @@ public class SimulationModelTests
     [Test]
     public void NewAntFollowsFoodTrailAfterFirstAntReturnsHome()
     {
-        var world = new World(80, 80, 1, 1);
+        var world = new World(80, 80);
         var colony = new Colony(world, 0, 7)
         {
             TurnChance = 0

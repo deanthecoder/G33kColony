@@ -157,10 +157,14 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
         get => m_antCount;
         set
         {
-            if (SetField(ref m_antCount, Math.Clamp(value, 1, 1000)))
+            if (SetField(ref m_antCount, Math.Clamp(value, AppSettings.MinimumAntCount, AppSettings.MaximumAntCount)))
                 RestartGame();
         }
     }
+
+    public int AntCountMinimum => AppSettings.MinimumAntCount;
+
+    public int AntCountMaximum => AppSettings.MaximumAntCount;
 
     public int AntMaximumLife
     {
@@ -295,7 +299,7 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
         m_turnChance = Math.Clamp(settings.TurnChance, 0, 1);
         m_randomTurnDegrees = Math.Clamp(settings.RandomTurnDegrees, 5, 75);
         m_stepsPerTick = Math.Clamp(settings.StepsPerTick, 1, 6);
-        m_antCount = Math.Clamp(settings.AntCount, 1, 1000);
+        m_antCount = Math.Clamp(settings.AntCount, AppSettings.MinimumAntCount, AppSettings.MaximumAntCount);
         m_antMaximumLife = Math.Clamp(settings.AntMaximumLife, 25, 5000);
         m_foodSourceCount = Math.Clamp(settings.FoodSourceCount, 1, 4);
         m_isHomePheromoneVisible = settings.IsHomePheromoneVisible;

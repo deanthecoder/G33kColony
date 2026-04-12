@@ -164,8 +164,6 @@ public sealed class Colony
 
         var isLaunching = ant.IsInLaunchPhase;
         var scent = default(ScentSample);
-        var food = default(FoodSample);
-        var home = default(HomeSample);
         var isFollowingDetectedFood = false;
         var isFollowingDetectedHome = false;
         var isFollowingScent = false;
@@ -176,8 +174,8 @@ public sealed class Colony
         }
         else
         {
-            food = SampleFood(ant);
-            home = SampleHome(ant);
+            var food = SampleFood(ant);
+            var home = SampleHome(ant);
             isFollowingDetectedFood = food.HasFood;
             isFollowingDetectedHome = home.HasHome;
             if (isFollowingDetectedFood)
@@ -380,17 +378,6 @@ public sealed class Colony
         movementY += separationY * separationWeight;
     }
 
-    private static double NormalizeRadians(double radians)
-    {
-        while (radians <= -Math.PI)
-            radians += Math.PI * 2;
-
-        while (radians > Math.PI)
-            radians -= Math.PI * 2;
-
-        return radians;
-    }
-
     private Ant CreateAnt(WorldPoint position, double headingRadians)
     {
         var ant = new Ant(position, Math.Cos(headingRadians), Math.Sin(headingRadians));
@@ -512,11 +499,6 @@ public sealed class Colony
 
         totalX += Math.Cos(heading) * strength;
         totalY += Math.Sin(heading) * strength;
-    }
-
-    private static void SteerToward(Ant ant, WorldPoint target)
-    {
-        ant.SetDirection(target.X - ant.Position.X, target.Y - ant.Position.Y);
     }
 
     private static void SteerTowardDesired(Ant ant, WorldPoint target)
