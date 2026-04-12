@@ -25,20 +25,22 @@ G33kColony aims to model this using a clean, tweakable simulation that makes the
 
 ## Simulation overview
 
-The world is a 2D grid of cells.
+The world is a continuous 2D space.
 
-Each cell may contain:
-- food (finite amount)
-- pheromones:
+The world contains:
+- finite circular food blobs, grouped into small clusters around each food source vicinity
+- circular pheromone blobs:
   - **home pheromone**
   - **food pheromone**
 
 Each ant has:
-- a position
-- a direction (with momentum)
+- an absolute position
+- a heading
 - a state:
   - `Searching`
   - `Returning`
+
+Ants spawn from the nest. If another ant is within the spawn radius, that ant waits and tries again on a later tick.
 
 ---
 
@@ -47,25 +49,34 @@ Each ant has:
 ### Searching ants
 
 - Leave the nest and perform a biased random walk:
-  - maintain general direction (momentum)
+  - maintain heading
   - apply small random angle turns that accumulate over time
-- Deposit **home pheromone**
-- Sample nearby cells in a 5x5 scent window:
-  - if **food pheromone** is detected, bias movement toward the averaged stronger values
+- New ants spawned at the nest face toward nearby **food pheromone** when present
+- Every few steps, deposit a **home pheromone** blob at the current position
+- Look ahead using three sample circles:
+  - left
+  - straight ahead
+  - right
+- If a food blob is detected in those circles, turn directly toward it
+- If **food pheromone** is detected, bias movement toward the strongest sample
   - random turns still happen, but become less likely when the food scent is stronger
 - If food is found:
+  - consume one unit from the food blob
   - pick up food
   - switch to `Returning`
+  - refresh ant life
 
 ---
 
 ### Returning ants
 
-- Move toward the nest by following **home pheromone**
-- Deposit **food pheromone**
+- Move toward the nest by sampling **home pheromone** blobs with the same left/straight/right look-ahead
+- If the nest is detected, turn directly toward it
+- If **home pheromone** is detected, random turning is suppressed while following it
+- Every few steps, deposit a **food pheromone** blob
 - If the nest is reached:
   - drop food
-  - switch to `Searching`
+  - respawn fresh at the nest as `Searching`
 
 ---
 
@@ -73,7 +84,6 @@ Each ant has:
 
 - Both pheromones:
   - **evaporate over time**
-  - may **diffuse slightly** into neighbouring cells
 - Strong, frequently used paths become reinforced
 - Weak or unused paths fade away
 
@@ -84,17 +94,17 @@ Each ant has:
 At each simulation tick:
 
 1. Each ant:
-   - samples pheromone levels in a small 5x5 scent window
+   - samples the relevant pheromone layer in three circles ahead
    - selects a direction based on:
      - pheromone strength
-     - momentum
+     - current heading
      - small random angle changes
    - moves forward one step
-   - deposits pheromone depending on state
+   - periodically deposits pheromone depending on state
+   - ages, unless it has just found food
 
 2. The world:
    - applies pheromone evaporation
-   - optionally applies diffusion
 
 This loop produces emergent pathfinding without any explicit pathfinding algorithm.
 
@@ -102,22 +112,24 @@ This loop produces emergent pathfinding without any explicit pathfinding algorit
 
 ## Rendering
 
-The simulation runs on a grid, but rendering will be higher resolution:
+The simulation renders continuous positions to a bitmap:
 
-- each cell rendered as a small block (e.g. 3x3 pixels)
-- pheromones visualised as intensity/colour overlays
+- pheromone blobs visualised as intensity/colour overlays
+- finite food blobs rendered by remaining amount
 - ants rendered as moving points
 
 Potential overlays:
 - food pheromone
 - home pheromone
+- ant look-ahead sensor areas
 - ant paths / density
 
 Current first pass:
-- fixed 640x480 world cells
+- fixed 640x480 world space
 - bitmap renderer scaled uniformly to the window
-- menu toggles for home and food pheromone visibility
-- top-right controls for seed, restart, decay, trail strength, turn chance, turn angle, simulation speed, ant count, and food source count
+- menu toggles for home pheromones, food pheromones, and sensor overlay visibility
+- top-right controls for seed, restart, decay, trail strength, turn chance, turn angle, simulation speed, ant count, ant life, food source count, and settings reset
+- UI control values are restored on launch and saved on exit
 
 ---
 

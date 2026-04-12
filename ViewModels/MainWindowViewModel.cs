@@ -14,6 +14,7 @@ using Avalonia.Threading;
 using DTC.Core.Commands;
 using DTC.Core.ViewModels;
 using G33kColony.Models;
+using G33kColony.Services;
 
 namespace G33kColony.ViewModels;
 
@@ -22,31 +23,44 @@ namespace G33kColony.ViewModels;
 /// </summary>
 public class MainWindowViewModel : ViewModelBase, IDisposable
 {
+    private readonly IAppSettings m_settings;
     private readonly DispatcherTimer m_timer;
     private World m_world;
     private Colony m_colony;
     private int m_frameNumber;
-    private int m_antCount = 100;
-    private int m_antMaximumLife = 1000;
-    private int m_foodSourceCount = 1;
-    private int m_stepsPerTick = 1;
-    private double m_pheromoneDecayRate = 0.012;
-    private double m_turnChance = 0.55;
-    private double m_randomTurnDegrees = 35;
-    private double m_pheromoneDepositAmount = 2.4;
-    private bool m_isHomePheromoneVisible = true;
-    private bool m_isFoodPheromoneVisible = true;
-    private string m_seedText = Random.Shared.Next(1, int.MaxValue).ToString();
+    private int m_antCount = AppSettings.DefaultAntCount;
+    private int m_antMaximumLife = AppSettings.DefaultAntMaximumLife;
+    private int m_foodSourceCount = AppSettings.DefaultFoodSourceCount;
+    private int m_stepsPerTick = AppSettings.DefaultStepsPerTick;
+    private double m_pheromoneDecayRate = AppSettings.DefaultPheromoneDecayRate;
+    private double m_turnChance = AppSettings.DefaultTurnChance;
+    private double m_randomTurnDegrees = AppSettings.DefaultRandomTurnDegrees;
+    private double m_pheromoneDepositAmount = AppSettings.DefaultPheromoneDepositAmount;
+    private bool m_isHomePheromoneVisible = AppSettings.DefaultIsHomePheromoneVisible;
+    private bool m_isFoodPheromoneVisible = AppSettings.DefaultIsFoodPheromoneVisible;
+    private bool m_isSensorOverlayVisible = AppSettings.DefaultIsSensorOverlayVisible;
+    private bool m_isDisposed;
+    private string m_seedText = AppSettings.CreateDefaultSeedText();
 
     public MainWindowViewModel()
-        : this(true)
+        : this(true, new AppSettings())
     {
     }
 
     internal MainWindowViewModel(bool startTimer)
+        : this(startTimer, null)
     {
+    }
+
+    internal MainWindowViewModel(bool startTimer, IAppSettings settings)
+    {
+        m_settings = settings;
         GoCommand = new RelayCommand(_ => RestartGame());
         NewSeedCommand = new RelayCommand(_ => NewSeed());
+        ResetSettingsCommand = new RelayCommand(_ => ResetSettings());
+
+        if (m_settings != null)
+            ApplySettingsToFields(m_settings);
 
         RestartGame();
 
@@ -69,6 +83,8 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
     public ICommand GoCommand { get; }
 
     public ICommand NewSeedCommand { get; }
+
+    public ICommand ResetSettingsCommand { get; }
 
     public World World
     {
@@ -146,7 +162,7 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
         get => m_antCount;
         set
         {
-            if (SetField(ref m_antCount, Math.Clamp(value, 25, 1000)))
+            if (SetField(ref m_antCount, Math.Clamp(value, 1, 1000)))
                 RestartGame();
         }
     }
@@ -181,6 +197,12 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
     {
         get => m_isFoodPheromoneVisible;
         set => SetField(ref m_isFoodPheromoneVisible, value);
+    }
+
+    public bool IsSensorOverlayVisible
+    {
+        get => m_isSensorOverlayVisible;
+        set => SetField(ref m_isSensorOverlayVisible, value);
     }
 
     public int FrameNumber
@@ -225,8 +247,21 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
 
     public void Dispose()
     {
+        if (m_isDisposed)
+            return;
+
+        m_isDisposed = true;
         m_timer.Tick -= OnTimerTick;
         m_timer.Stop();
+        SaveSettings();
+        m_settings?.Dispose();
+    }
+
+    public void ResetSettings()
+    {
+        ApplyDefaultSettingsToFields();
+        RestartGame();
+        RaiseAllPropertiesChanged();
     }
 
     private void OnTimerTick(object sender, EventArgs e) =>
@@ -249,5 +284,58 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
         Colony.MaximumRandomTurnRadians = RandomTurnDegrees * Math.PI / 180;
         Colony.PheromoneDepositAmount = (float)PheromoneDepositAmount;
         Colony.AntMaximumLife = AntMaximumLife;
+    }
+
+    private void ApplySettingsToFields(IAppSettings settings)
+    {
+        m_seedText = string.IsNullOrWhiteSpace(settings.SeedText)
+            ? AppSettings.CreateDefaultSeedText()
+            : settings.SeedText;
+        m_pheromoneDecayRate = Math.Clamp(settings.PheromoneDecayRate, 0.001, 0.08);
+        m_pheromoneDepositAmount = Math.Clamp(settings.PheromoneDepositAmount, 0.1, 8);
+        m_turnChance = Math.Clamp(settings.TurnChance, 0, 1);
+        m_randomTurnDegrees = Math.Clamp(settings.RandomTurnDegrees, 5, 75);
+        m_stepsPerTick = Math.Clamp(settings.StepsPerTick, 1, 6);
+        m_antCount = Math.Clamp(settings.AntCount, 1, 1000);
+        m_antMaximumLife = Math.Clamp(settings.AntMaximumLife, 25, 5000);
+        m_foodSourceCount = Math.Clamp(settings.FoodSourceCount, 1, 4);
+        m_isHomePheromoneVisible = settings.IsHomePheromoneVisible;
+        m_isFoodPheromoneVisible = settings.IsFoodPheromoneVisible;
+        m_isSensorOverlayVisible = settings.IsSensorOverlayVisible;
+    }
+
+    private void ApplyDefaultSettingsToFields()
+    {
+        m_seedText = AppSettings.CreateDefaultSeedText();
+        m_pheromoneDecayRate = AppSettings.DefaultPheromoneDecayRate;
+        m_pheromoneDepositAmount = AppSettings.DefaultPheromoneDepositAmount;
+        m_turnChance = AppSettings.DefaultTurnChance;
+        m_randomTurnDegrees = AppSettings.DefaultRandomTurnDegrees;
+        m_stepsPerTick = AppSettings.DefaultStepsPerTick;
+        m_antCount = AppSettings.DefaultAntCount;
+        m_antMaximumLife = AppSettings.DefaultAntMaximumLife;
+        m_foodSourceCount = AppSettings.DefaultFoodSourceCount;
+        m_isHomePheromoneVisible = AppSettings.DefaultIsHomePheromoneVisible;
+        m_isFoodPheromoneVisible = AppSettings.DefaultIsFoodPheromoneVisible;
+        m_isSensorOverlayVisible = AppSettings.DefaultIsSensorOverlayVisible;
+    }
+
+    private void SaveSettings()
+    {
+        if (m_settings == null)
+            return;
+
+        m_settings.SeedText = SeedText;
+        m_settings.PheromoneDecayRate = PheromoneDecayRate;
+        m_settings.PheromoneDepositAmount = PheromoneDepositAmount;
+        m_settings.TurnChance = TurnChance;
+        m_settings.RandomTurnDegrees = RandomTurnDegrees;
+        m_settings.StepsPerTick = StepsPerTick;
+        m_settings.AntCount = AntCount;
+        m_settings.AntMaximumLife = AntMaximumLife;
+        m_settings.FoodSourceCount = FoodSourceCount;
+        m_settings.IsHomePheromoneVisible = IsHomePheromoneVisible;
+        m_settings.IsFoodPheromoneVisible = IsFoodPheromoneVisible;
+        m_settings.IsSensorOverlayVisible = IsSensorOverlayVisible;
     }
 }

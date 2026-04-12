@@ -24,23 +24,47 @@ public enum AntState
 }
 
 /// <summary>
+/// Represents an absolute point in the simulation world.
+/// </summary>
+public readonly record struct WorldPoint(double X, double Y)
+{
+    public static WorldPoint Zero { get; } = new(0, 0);
+
+    public WorldPoint WithDelta(double deltaX, double deltaY) =>
+        new(X + deltaX, Y + deltaY);
+
+    public double DistanceSquared(WorldPoint other)
+    {
+        var deltaX = X - other.X;
+        var deltaY = Y - other.Y;
+        return deltaX * deltaX + deltaY * deltaY;
+    }
+
+    public double Distance(WorldPoint other) =>
+        Math.Sqrt(DistanceSquared(other));
+}
+
+/// <summary>
 /// Represents a single ant in the simulation world.
 /// </summary>
 public sealed class Ant
 {
     private double m_headingRadians;
+    private int m_stepsSincePheromoneDrop;
 
-    public Ant(IntPoint position, int directionX, int directionY)
+    public Ant(WorldPoint position, double directionX, double directionY)
     {
         Position = position;
         SetDirection(directionX, directionY);
     }
 
-    public IntPoint Position { get; private set; }
+    public WorldPoint Position { get; private set; }
 
-    public int DirectionX => GetCellDirection().X;
+    public double HeadingRadians => m_headingRadians;
 
-    public int DirectionY => GetCellDirection().Y;
+    public double DirectionX => Math.Cos(m_headingRadians);
+
+    public double DirectionY => Math.Sin(m_headingRadians);
 
     public AntState State { get; private set; }
 
@@ -48,9 +72,8 @@ public sealed class Ant
 
     public int LifeRemaining { get; private set; }
 
-    public int PreviousDirectionX { get; private set; }
-
-    public int PreviousDirectionY { get; private set; }
+    public bool ShouldDropPheromone(int dropInterval) =>
+        m_stepsSincePheromoneDrop % Math.Max(1, dropInterval) == 0;
 
     public void SetState(AntState state) =>
         State = state;
@@ -64,11 +87,15 @@ public sealed class Ant
     internal void Kill() =>
         IsAlive = false;
 
-    internal void Respawn(IntPoint position, int directionX, int directionY, int maximumLife)
+    internal void CountStep() =>
+        m_stepsSincePheromoneDrop++;
+
+    internal void Respawn(WorldPoint position, double headingRadians, int maximumLife)
     {
         Position = position;
         SetState(AntState.Searching);
-        SetDirection(directionX, directionY);
+        m_headingRadians = NormalizeRadians(headingRadians);
+        m_stepsSincePheromoneDrop = 0;
         ResetLife(maximumLife);
         IsAlive = true;
     }
@@ -76,22 +103,15 @@ public sealed class Ant
     internal void Turn(double radians) =>
         m_headingRadians = NormalizeRadians(m_headingRadians + radians);
 
-    public void SetDirection(int directionX, int directionY)
+    public void SetDirection(double directionX, double directionY)
     {
-        var currentDirection = GetCellDirection();
-        PreviousDirectionX = currentDirection.X;
-        PreviousDirectionY = currentDirection.Y;
-
-        var newDirectionX = Math.Clamp(directionX, -1, 1);
-        var newDirectionY = Math.Clamp(directionY, -1, 1);
-
-        if (newDirectionX == 0 && newDirectionY == 0)
+        if (Math.Abs(directionX) < double.Epsilon && Math.Abs(directionY) < double.Epsilon)
             return;
 
-        m_headingRadians = Math.Atan2(newDirectionY, newDirectionX);
+        m_headingRadians = NormalizeRadians(Math.Atan2(directionY, directionX));
     }
 
-    public void MoveTo(IntPoint position) =>
+    public void MoveTo(WorldPoint position) =>
         Position = position;
 
     private static double NormalizeRadians(double radians)
@@ -104,96 +124,111 @@ public sealed class Ant
 
         return radians;
     }
+}
 
-    private (int X, int Y) GetCellDirection()
+/// <summary>
+/// Represents a finite circular food blob that searching ants can consume.
+/// </summary>
+public sealed class FoodSource
+{
+    private const double DetectionPadding = 3.5;
+
+    public FoodSource(WorldPoint position, double radius, int amount)
     {
-        var sector = (int)Math.Round(m_headingRadians / (Math.PI / 4), MidpointRounding.ToEven);
-        sector = ((sector % 8) + 8) % 8;
+        if (radius <= 0)
+            throw new ArgumentOutOfRangeException(nameof(radius), "Radius must be greater than zero.");
+        if (amount < 0)
+            throw new ArgumentOutOfRangeException(nameof(amount), "Amount must not be negative.");
 
-        return sector switch
-        {
-            0 => (1, 0),
-            1 => (1, 1),
-            2 => (0, 1),
-            3 => (-1, 1),
-            4 => (-1, 0),
-            5 => (-1, -1),
-            6 => (0, -1),
-            _ => (1, -1)
-        };
+        Position = position;
+        Radius = radius;
+        InitialAmount = amount;
+        RemainingAmount = amount;
+    }
+
+    public WorldPoint Position { get; }
+
+    public double Radius { get; }
+
+    public int InitialAmount { get; }
+
+    public int RemainingAmount { get; private set; }
+
+    public bool IsDepleted => RemainingAmount <= 0;
+
+    public bool Contains(WorldPoint point) =>
+        !IsDepleted && Position.DistanceSquared(point) <= Math.Pow(Radius + DetectionPadding, 2);
+
+    public bool TryConsume(WorldPoint point)
+    {
+        if (!Contains(point))
+            return false;
+
+        RemainingAmount--;
+        return true;
     }
 }
 
 /// <summary>
-/// Represents a circular food blob that searching ants can discover.
+/// Stores one pheromone mark in continuous world space.
 /// </summary>
-public sealed class FoodSource
+public sealed class PheromoneBlob
 {
-    public FoodSource(IntPoint position, int radius)
+    public PheromoneBlob(WorldPoint position, double radius, float strength)
+    {
+        if (radius <= 0)
+            throw new ArgumentOutOfRangeException(nameof(radius), "Radius must be greater than zero.");
+        if (strength < 0)
+            throw new ArgumentOutOfRangeException(nameof(strength), "Strength must not be negative.");
+
+        Position = position;
+        Radius = radius;
+        Strength = strength;
+    }
+
+    public WorldPoint Position { get; }
+
+    public double Radius { get; }
+
+    public float Strength { get; private set; }
+
+    internal void Evaporate(float retention) =>
+        Strength *= retention;
+}
+
+/// <summary>
+/// Stores a collection of continuous pheromone blobs.
+/// </summary>
+public sealed class PheromoneField
+{
+    private const float MinimumStrength = 0.01f;
+    private readonly List<PheromoneBlob> m_blobs = [];
+
+    public IReadOnlyList<PheromoneBlob> Blobs => m_blobs;
+
+    public void Add(WorldPoint position, double radius, float strength)
+    {
+        if (strength < 0)
+            throw new ArgumentOutOfRangeException(nameof(strength), "Strength must not be negative.");
+
+        m_blobs.Add(new PheromoneBlob(position, radius, strength));
+    }
+
+    public float SampleTotal(WorldPoint position, double radius)
     {
         if (radius <= 0)
             throw new ArgumentOutOfRangeException(nameof(radius), "Radius must be greater than zero.");
 
-        Position = position;
-        Radius = radius;
-    }
+        var total = 0f;
+        var radiusSquared = radius * radius;
+        for (var i = 0; i < m_blobs.Count; i++)
+        {
+            var blob = m_blobs[i];
+            if (blob.Position.DistanceSquared(position) <= radiusSquared)
+                total += blob.Strength;
+        }
 
-    public IntPoint Position { get; }
-
-    public int Radius { get; }
-
-    public bool Contains(IntPoint point) =>
-        Position.DistanceSquared(point) <= Radius * Radius;
-}
-
-/// <summary>
-/// Stores one scalar pheromone layer for every cell in the world.
-/// </summary>
-public sealed class PheromoneData
-{
-    private readonly int m_width;
-    private readonly int m_height;
-    private readonly float[] m_cells;
-
-    public PheromoneData(int width, int height)
-    {
-        if (width <= 0)
-            throw new ArgumentOutOfRangeException(nameof(width), "Width must be greater than zero.");
-        if (height <= 0)
-            throw new ArgumentOutOfRangeException(nameof(height), "Height must be greater than zero.");
-
-        m_width = width;
-        m_height = height;
-        m_cells = new float[width * height];
-    }
-    
-    public ReadOnlySpan<float> Cells => m_cells;
-
-    public float this[int x, int y]
-    {
-        get => m_cells[GetIndex(x, y)];
-        set => m_cells[GetIndex(x, y)] = Math.Max(0, value);
-    }
-
-    public void Add(int x, int y, float amount)
-    {
-        if (amount < 0)
-            throw new ArgumentOutOfRangeException(nameof(amount), "Amount must not be negative.");
-
-        m_cells[GetIndex(x, y)] += amount;
-    }
-
-    public void AddTowardsMax(int x, int y, float amount, float maximum)
-    {
-        if (amount < 0)
-            throw new ArgumentOutOfRangeException(nameof(amount), "Amount must not be negative.");
-        if (maximum < 0)
-            throw new ArgumentOutOfRangeException(nameof(maximum), "Maximum must not be negative.");
-
-        var index = GetIndex(x, y);
-        var current = m_cells[index];
-        var remaining = Math.Max(0, maximum - current);
-        m_cells[index] = current + remaining * amount;
+        return total;
     }
 
     public void Evaporate(float retention)
@@ -201,45 +236,39 @@ public sealed class PheromoneData
         if (retention is < 0 or > 1)
             throw new ArgumentOutOfRangeException(nameof(retention), "Retention must be between 0 and 1.");
 
-        for (var i = 0; i < m_cells.Length; i++)
-            m_cells[i] *= retention;
-    }
-
-    public bool Contains(int x, int y) =>
-        x >= 0 && y >= 0 && x < m_width && y < m_height;
-
-    private int GetIndex(int x, int y)
-    {
-        if (!Contains(x, y))
-            throw new ArgumentOutOfRangeException(nameof(x), $"Cell ({x}, {y}) is outside {m_width}x{m_height}.");
-
-        return y * m_width + x;
+        for (var i = m_blobs.Count - 1; i >= 0; i--)
+        {
+            var blob = m_blobs[i];
+            blob.Evaporate(retention);
+            if (blob.Strength < MinimumStrength)
+                m_blobs.RemoveAt(i);
+        }
     }
 }
 
 /// <summary>
-/// Tracks the ants belonging to a single colony and advances their simple movement.
+/// Tracks the ants belonging to a single colony and advances their pheromone-led movement.
 /// </summary>
 public sealed class Colony
 {
     public const double DefaultMaximumRandomTurnRadians = Math.PI / 4;
-    
-    private const float MinimumFollowableScent = 0.05f;
-    private const int ScentRadius = 2;
-    private const int NestArrivalRadius = 2;
-    private const int SpawnClearRadius = 5;
-    private const float MaximumPheromoneStrength = 2.0f;
-    private const float CenterDepositWeight = 1.0f;
-    private const float OrthogonalDepositWeight = 0.45f;
-    private const float DiagonalDepositWeight = 0.2f;
+    public const double AntCollisionRadius = 5;
+    public const double NestArrivalRadius = AntCollisionRadius;
+    public const double SensorDistance = 12;
+    public const double SensorRadius = 8;
+    public const double SensorAngleRadians = Math.PI / 4;
+
+    private const double StepDistance = 1.4;
+    private const double PheromoneBlobRadius = 4.5;
+    private const double SignalSteerFraction = 0.45;
+    private const int PheromoneDropInterval = 4;
     private readonly List<Ant> m_ants;
     private readonly Random m_random;
     private readonly World m_world;
     private double m_turnChance = 0.55;
     private double m_maximumRandomTurnRadians = DefaultMaximumRandomTurnRadians;
-    private float m_pheromoneDepositAmount = 0.35f;
+    private float m_pheromoneDepositAmount = 2.4f;
     private int m_antMaximumLife = 1000;
-    private bool m_isFirstAntFoodTraceActive;
     private bool m_hasFirstAntFoundFood;
 
     public Colony(World world, int antCount, int randomSeed = 1)
@@ -252,10 +281,7 @@ public sealed class Colony
         m_ants = new List<Ant>(antCount);
 
         for (var i = 0; i < antCount; i++)
-        {
-            var (directionX, directionY) = CreateRandomDirection();
-            m_ants.Add(CreateAnt(world.NestPosition, directionX, directionY));
-        }
+            AddAntSlotAtNest();
     }
 
     public IReadOnlyList<Ant> Ants => m_ants;
@@ -275,7 +301,7 @@ public sealed class Colony
     public float PheromoneDepositAmount
     {
         get => m_pheromoneDepositAmount;
-        set => m_pheromoneDepositAmount = Math.Clamp(value, 0.001f, 1.0f);
+        set => m_pheromoneDepositAmount = Math.Clamp(value, 0.001f, 8.0f);
     }
 
     public int AntMaximumLife
@@ -300,12 +326,12 @@ public sealed class Colony
     /// <summary>
     /// Adds an ant to the colony at a specific world position.
     /// </summary>
-    public Ant AddAnt(IntPoint position, int directionX, int directionY)
+    public Ant AddAnt(WorldPoint position, double directionX, double directionY)
     {
         if (!m_world.Contains(position))
             throw new ArgumentOutOfRangeException(nameof(position), $"Position {position} is outside the world.");
 
-        var ant = CreateAnt(position, directionX, directionY);
+        var ant = CreateAnt(position, Math.Atan2(directionY, directionX));
         m_ants.Add(ant);
         return ant;
     }
@@ -316,13 +342,80 @@ public sealed class Colony
         {
             if (!ant.IsAlive)
             {
-                TryRespawnAnt(ant);
+                RespawnAnt(ant);
                 continue;
             }
 
-            DepositPheromone(ant);
             Wander(ant);
         }
+    }
+
+    private void Wander(Ant ant)
+    {
+        var resetLifeThisTick = false;
+
+        if (ant.ShouldDropPheromone(PheromoneDropInterval))
+            DepositPheromone(ant);
+
+        var scent = SampleScent(ant);
+        var food = SampleFood(ant);
+        var home = SampleHome(ant);
+        var isFollowingDetectedFood = food.HasFood;
+        var isFollowingDetectedHome = home.HasHome;
+        var isFollowingScent = false;
+        if (isFollowingDetectedFood)
+            SteerToward(ant, food.Position);
+        else if (isFollowingDetectedHome)
+            SteerToward(ant, home.Position);
+        else if (SteerByScent(ant, scent))
+            isFollowingScent = true;
+
+        if (ant.State == AntState.Returning &&
+            ant.Position.DistanceSquared(m_world.NestPosition) <= SensorDistance * SensorDistance * 4)
+        {
+            SteerToward(ant, m_world.NestPosition);
+            isFollowingDetectedHome = true;
+        }
+
+        var randomTurnChance = isFollowingDetectedFood ||
+            isFollowingDetectedHome ||
+            isFollowingScent && ant.State == AntState.Returning
+                ? 0
+                : GetScentAdjustedTurnChance(scent);
+        if (m_random.NextDouble() < randomTurnChance)
+            ant.Turn(CreateRandomTurnRadians());
+
+        MoveForward(ant);
+
+        if (ant.State == AntState.Searching && m_world.TryConsumeFood(ant.Position))
+        {
+            ant.SetState(AntState.Returning);
+            FoodFoundCount++;
+            ant.ResetLife(AntMaximumLife);
+            ant.Turn(Math.PI);
+            resetLifeThisTick = true;
+
+            if (IsFirstAnt(ant) && !m_hasFirstAntFoundFood)
+            {
+                m_hasFirstAntFoundFood = true;
+                Logger.Instance.Info($"First ant found food at {FormatPoint(ant.Position)}; nest={FormatPoint(m_world.NestPosition)}.");
+            }
+        }
+        else if (ant.State == AntState.Returning && ant.Position.DistanceSquared(m_world.NestPosition) <= NestArrivalRadius * NestArrivalRadius)
+        {
+            ant.Respawn(m_world.NestPosition, CreateSpawnHeadingRadians(m_world.NestPosition), AntMaximumLife);
+            FoodReturnedHomeCount++;
+            resetLifeThisTick = true;
+        }
+
+        if (!resetLifeThisTick)
+        {
+            ant.UseLife();
+            if (ant.LifeRemaining <= 0)
+                RespawnAnt(ant);
+        }
+
+        ant.CountStep();
     }
 
     private void DepositPheromone(Ant ant)
@@ -331,217 +424,74 @@ public sealed class Colony
             ? m_world.HomePheromones
             : m_world.FoodPheromones;
 
-        DepositPheromoneKernel(pheromones, ant.Position.X, ant.Position.Y, PheromoneDepositAmount);
+        pheromones.Add(ant.Position, PheromoneBlobRadius, PheromoneDepositAmount);
     }
 
-    private void DepositPheromoneKernel(PheromoneData pheromones, int centerX, int centerY, float baseAmount)
+    private void MoveForward(Ant ant)
     {
-        for (var offsetY = -1; offsetY <= 1; offsetY++)
-        for (var offsetX = -1; offsetX <= 1; offsetX++)
-        {
-            var x = centerX + offsetX;
-            var y = centerY + offsetY;
-            if (!pheromones.Contains(x, y))
-                continue;
-
-            var weight = GetDepositWeight(offsetX, offsetY);
-            if (weight <= 0)
-                continue;
-
-            pheromones.AddTowardsMax(x, y, baseAmount * weight, MaximumPheromoneStrength);
-        }
-    }
-
-    private static float GetDepositWeight(int offsetX, int offsetY)
-    {
-        if (offsetX == 0 && offsetY == 0)
-            return CenterDepositWeight;
-
-        if (offsetX == 0 || offsetY == 0)
-            return OrthogonalDepositWeight;
-
-        return DiagonalDepositWeight;
-    }
-
-    private void Wander(Ant ant)
-    {
-        var previousPosition = ant.Position;
-        var previousState = ant.State;
-        var scent = SampleScent(ant);
-        var randomTurnChance = GetScentAdjustedTurnChance(scent.TotalScent);
-        var action = "move";
-        var stopFirstAntFoodTraceAfterLog = false;
-        var resetLifeThisTick = false;
-
-        if (m_random.NextDouble() < randomTurnChance)
-        {
-            ant.Turn(CreateRandomTurnRadians());
-            action = "random turn";
-        }
-
-        var returningFromFood = ant.State == AntState.Returning && m_world.IsFood(ant.Position);
-        var followedScent = !returningFromFood && SteerByScent(ant, scent);
-        if (followedScent)
-            action = $"follow {GetScentLayerName(previousState)} scent";
-
-        if (returningFromFood || ant.State == AntState.Returning && !followedScent && m_random.NextDouble() < 0.75)
-        {
-            SteerToward(ant, m_world.NestPosition);
-            action = returningFromFood ? "leave food" : "steer home";
-        }
-
-        var next = ant.Position.WithDelta(ant.DirectionX, ant.DirectionY);
+        var next = ant.Position.WithDelta(ant.DirectionX * StepDistance, ant.DirectionY * StepDistance);
         if (!m_world.Contains(next))
         {
-            ant.SetDirection(-ant.DirectionX, -ant.DirectionY);
-            next = ant.Position.WithDelta(ant.DirectionX, ant.DirectionY);
-            action = "turn from wall";
+            ant.Turn(Math.PI);
+            next = ant.Position.WithDelta(ant.DirectionX * StepDistance, ant.DirectionY * StepDistance);
         }
 
-        next = ResolveMoveTarget(ant, m_world.Clamp(next));
-        if (next == ant.Position)
-            action = "blocked";
-
-        ant.MoveTo(next);
-
-        if (ant.State == AntState.Searching && m_world.IsFood(ant.Position))
-        {
-            ant.SetState(AntState.Returning);
-            FoodFoundCount++;
-            ant.ResetLife(AntMaximumLife);
-            resetLifeThisTick = true;
-
-            var reverseDirectionX = -ant.PreviousDirectionX;
-            var reverseDirectionY = -ant.PreviousDirectionY;
-            if (reverseDirectionX == 0 && reverseDirectionY == 0)
-            {
-                reverseDirectionX = -ant.DirectionX;
-                reverseDirectionY = -ant.DirectionY;
-            }
-
-            ant.SetDirection(reverseDirectionX, reverseDirectionY);
-            action = "found food";
-
-            if (IsFirstAnt(ant) && !m_hasFirstAntFoundFood)
-            {
-                m_hasFirstAntFoundFood = true;
-                m_isFirstAntFoodTraceActive = true;
-                Logger.Instance.Info($"First ant found food at {ant.Position}; nest={m_world.NestPosition}.");
-            }
-        }
-        else if (ant.State == AntState.Returning && ant.Position.DistanceSquared(m_world.NestPosition) <= NestArrivalRadius * NestArrivalRadius)
-        {
-            DepositPheromoneKernel(m_world.FoodPheromones, ant.Position.X, ant.Position.Y, PheromoneDepositAmount);
-            ant.SetState(AntState.Searching);
-            FoodReturnedHomeCount++;
-            action = "returned home";
-
-            if (IsFirstAnt(ant))
-                stopFirstAntFoodTraceAfterLog = true;
-        }
-
-        if (m_isFirstAntFoodTraceActive && IsFirstAnt(ant))
-            LogFirstAntFoodTrace(ant, previousPosition, previousState, scent, action);
-
-        if (stopFirstAntFoodTraceAfterLog)
-            m_isFirstAntFoodTraceActive = false;
-
-        if (!resetLifeThisTick)
-        {
-            ant.UseLife();
-            if (ant.LifeRemaining <= 0)
-                TryRespawnAnt(ant);
-        }
+        ant.MoveTo(m_world.Clamp(next));
     }
 
-    private Ant CreateAnt(IntPoint position, int directionX, int directionY)
+    private Ant CreateAnt(WorldPoint position, double headingRadians)
     {
-        var ant = new Ant(position, directionX, directionY);
+        var ant = new Ant(position, Math.Cos(headingRadians), Math.Sin(headingRadians));
         ant.ResetLife(AntMaximumLife);
         return ant;
     }
 
-    private IntPoint ResolveMoveTarget(Ant ant, IntPoint preferredPosition)
+    private void AddAntSlotAtNest()
     {
-        if (IsCellEmpty(preferredPosition, ant))
-            return preferredPosition;
+        var ant = CreateAnt(m_world.NestPosition, CreateSpawnHeadingRadians(m_world.NestPosition));
+        if (!m_world.HasFoodRemaining || IsSpawnBlocked(m_world.NestPosition, null))
+            ant.Kill();
 
-        var bestPosition = ant.Position;
-        var bestDistanceSquared = double.MaxValue;
-
-        for (var y = ant.Position.Y - 1; y <= ant.Position.Y + 1; y++)
-        for (var x = ant.Position.X - 1; x <= ant.Position.X + 1; x++)
-        {
-            var candidate = new IntPoint(x, y);
-            if (candidate == ant.Position || !m_world.Contains(candidate) || !IsCellEmpty(candidate, ant))
-                continue;
-
-            var distanceSquared = candidate.DistanceSquared(preferredPosition);
-            if (distanceSquared >= bestDistanceSquared)
-                continue;
-
-            bestPosition = candidate;
-            bestDistanceSquared = distanceSquared;
-        }
-
-        return bestPosition;
+        m_ants.Add(ant);
     }
 
-    private bool IsCellEmpty(IntPoint position, Ant movingAnt)
+    private void RespawnAnt(Ant ant)
     {
-        foreach (var ant in m_ants)
-        {
-            if (!ant.IsAlive || ReferenceEquals(ant, movingAnt))
-                continue;
-
-            if (ant.Position == position)
-                return false;
-        }
-
-        return true;
-    }
-
-    private bool TryRespawnAnt(Ant ant)
-    {
-        if (IsSpawnBlocked(m_world.NestPosition, ant))
+        if (!m_world.HasFoodRemaining || IsSpawnBlocked(m_world.NestPosition, ant))
         {
             ant.Kill();
-            return false;
+            return;
         }
 
-        var (directionX, directionY) = CreateRandomDirection();
-        ant.Respawn(m_world.NestPosition, directionX, directionY, AntMaximumLife);
-        return true;
+        ant.Respawn(m_world.NestPosition, CreateSpawnHeadingRadians(m_world.NestPosition), AntMaximumLife);
     }
 
-    private bool IsSpawnBlocked(IntPoint spawnPosition, Ant spawningAnt)
+    private bool IsSpawnBlocked(WorldPoint spawnPosition, Ant spawningAnt)
     {
         foreach (var ant in m_ants)
         {
             if (!ant.IsAlive || ReferenceEquals(ant, spawningAnt))
                 continue;
 
-            if (ant.Position.DistanceSquared(spawnPosition) <= SpawnClearRadius * SpawnClearRadius)
+            if (ant.Position.DistanceSquared(spawnPosition) <= AntCollisionRadius * AntCollisionRadius)
                 return true;
         }
 
         return false;
     }
 
-    private static void SteerToward(Ant ant, IntPoint target)
-    {
-        var directionX = Math.Sign(target.X - ant.Position.X);
-        var directionY = Math.Sign(target.Y - ant.Position.Y);
-        ant.SetDirection(directionX, directionY);
-    }
-
     private static bool SteerByScent(Ant ant, ScentSample scent)
     {
-        if (!scent.HasDirection)
+        if (!scent.HasSignal)
             return false;
 
-        ant.SetDirection(Math.Sign(scent.SelectedX), Math.Sign(scent.SelectedY));
+        ant.Turn(scent.SelectedAngleOffset * SignalSteerFraction);
         return true;
+    }
+
+    private static void SteerToward(Ant ant, WorldPoint target)
+    {
+        ant.SetDirection(target.X - ant.Position.X, target.Y - ant.Position.Y);
     }
 
     private ScentSample SampleScent(Ant ant)
@@ -550,136 +500,189 @@ public sealed class Colony
             ? m_world.FoodPheromones
             : m_world.HomePheromones;
 
-        return SampleScent(ant, pheromones, ant.State);
+        return SampleScent(ant, pheromones);
     }
 
-    private double GetScentAdjustedTurnChance(float scentStrength) =>
-        TurnChance / (1 + scentStrength * 6);
+    private FoodSample SampleFood(Ant ant)
+    {
+        if (ant.State != AntState.Searching)
+            return new FoodSample(WorldPoint.Zero, false);
+
+        var selectedPosition = WorldPoint.Zero;
+        var selectedDistanceSquared = double.MaxValue;
+        var hasFood = false;
+
+        ConsiderFoodSample(ant, 0, ref selectedPosition, ref selectedDistanceSquared, ref hasFood);
+        ConsiderFoodSample(ant, -SensorAngleRadians, ref selectedPosition, ref selectedDistanceSquared, ref hasFood);
+        ConsiderFoodSample(ant, SensorAngleRadians, ref selectedPosition, ref selectedDistanceSquared, ref hasFood);
+
+        return new FoodSample(selectedPosition, hasFood);
+    }
+
+    private void ConsiderFoodSample(
+        Ant ant,
+        double angleOffset,
+        ref WorldPoint selectedPosition,
+        ref double selectedDistanceSquared,
+        ref bool hasFood)
+    {
+        var samplePosition = GetSamplePosition(ant, angleOffset);
+        foreach (var source in m_world.FoodSources)
+        {
+            if (source.IsDepleted)
+                continue;
+
+            var detectionRadius = SensorRadius + source.Radius;
+            if (source.Position.DistanceSquared(samplePosition) > detectionRadius * detectionRadius)
+                continue;
+
+            var distanceSquared = source.Position.DistanceSquared(ant.Position);
+            if (hasFood && distanceSquared >= selectedDistanceSquared)
+                continue;
+
+            selectedPosition = source.Position;
+            selectedDistanceSquared = distanceSquared;
+            hasFood = true;
+        }
+    }
+
+    private HomeSample SampleHome(Ant ant)
+    {
+        if (ant.State != AntState.Returning)
+            return new HomeSample(WorldPoint.Zero, false);
+
+        return IsHomeInSampleArea(ant, 0) ||
+            IsHomeInSampleArea(ant, -SensorAngleRadians) ||
+            IsHomeInSampleArea(ant, SensorAngleRadians)
+                ? new HomeSample(m_world.NestPosition, true)
+                : new HomeSample(WorldPoint.Zero, false);
+    }
+
+    private bool IsHomeInSampleArea(Ant ant, double angleOffset)
+    {
+        var samplePosition = GetSamplePosition(ant, angleOffset);
+        var detectionRadius = SensorRadius + NestArrivalRadius;
+        return m_world.NestPosition.DistanceSquared(samplePosition) <= detectionRadius * detectionRadius;
+    }
+
+    private static ScentSample SampleScent(Ant ant, PheromoneField pheromones)
+    {
+        var leftStrength = SampleAhead(ant, pheromones, -SensorAngleRadians);
+        var straightStrength = SampleAhead(ant, pheromones, 0);
+        var rightStrength = SampleAhead(ant, pheromones, SensorAngleRadians);
+        var selectedAngle = 0.0;
+        var selectedStrength = 0f;
+        var hasSignal = false;
+
+        ConsiderScentSample(0, straightStrength, ref selectedAngle, ref selectedStrength, ref hasSignal);
+        ConsiderScentSample(-SensorAngleRadians, leftStrength, ref selectedAngle, ref selectedStrength, ref hasSignal);
+        ConsiderScentSample(SensorAngleRadians, rightStrength, ref selectedAngle, ref selectedStrength, ref hasSignal);
+
+        return new ScentSample(selectedAngle, selectedStrength, hasSignal);
+    }
+
+    private static void ConsiderScentSample(
+        double angle,
+        float strength,
+        ref double selectedAngle,
+        ref float selectedStrength,
+        ref bool hasSignal)
+    {
+        if (strength <= 0)
+            return;
+        if (hasSignal && strength <= selectedStrength)
+            return;
+        selectedAngle = angle;
+        selectedStrength = strength;
+        hasSignal = true;
+    }
+
+    private static float SampleAhead(Ant ant, PheromoneField pheromones, double angleOffset)
+    {
+        var samplePosition = GetSamplePosition(ant, angleOffset);
+        return pheromones.SampleTotal(samplePosition, SensorRadius);
+    }
+
+    private static WorldPoint GetSamplePosition(Ant ant, double angleOffset)
+    {
+        var sampleHeading = ant.HeadingRadians + angleOffset;
+        return ant.Position.WithDelta(
+            Math.Cos(sampleHeading) * SensorDistance,
+            Math.Sin(sampleHeading) * SensorDistance);
+    }
+
+    private double GetScentAdjustedTurnChance(ScentSample scent)
+    {
+        if (!scent.HasSignal)
+            return TurnChance;
+
+        return TurnChance / (1 + Math.Max(1, scent.SelectedStrength) * 8);
+    }
 
     private bool IsFirstAnt(Ant ant) =>
         m_ants.Count > 0 && ReferenceEquals(m_ants[0], ant);
-
-    private void LogFirstAntFoodTrace(
-        Ant ant,
-        IntPoint previousPosition,
-        AntState previousState,
-        ScentSample scent,
-        string action)
-    {
-        var homeScent = SampleScent(ant, m_world.HomePheromones, AntState.Returning);
-        var foodScent = SampleScent(ant, m_world.FoodPheromones, AntState.Searching);
-        Logger.Instance.Info(
-            $"First ant trace: action={action}; state={previousState}->{ant.State}; " +
-            $"position={previousPosition}->{ant.Position}; direction=({ant.DirectionX},{ant.DirectionY}); " +
-            $"distanceHome={ant.Position.DistanceSquared(m_world.NestPosition):0.##}; isFood={m_world.IsFood(ant.Position)}; " +
-            $"{GetScentLayerName(previousState)}ScentBefore={FormatScent(scent)}; " +
-            $"homeScentHere={FormatScent(homeScent)}; foodScentHere={FormatScent(foodScent)}.");
-    }
-
-    private static ScentSample SampleScent(Ant ant, PheromoneData pheromones, AntState state)
-    {
-        var totalScent = 0f;
-        var hasBestDirection = false;
-        var selectedScent = 0f;
-        var selectedX = 0;
-        var selectedY = 0;
-        var directionX = ant.DirectionX;
-        var directionY = ant.DirectionY;
-        var currentScent = pheromones.Contains(ant.Position.X, ant.Position.Y)
-            ? pheromones[ant.Position.X, ant.Position.Y]
-            : 0f;
-
-        for (var y = ant.Position.Y - ScentRadius; y <= ant.Position.Y + ScentRadius; y++)
-        for (var x = ant.Position.X - ScentRadius; x <= ant.Position.X + ScentRadius; x++)
-        {
-            var relativeX = x - ant.Position.X;
-            var relativeY = y - ant.Position.Y;
-            if (relativeX == 0 && relativeY == 0 || !pheromones.Contains(x, y))
-                continue;
-
-            if (relativeX * directionX + relativeY * directionY <= 0)
-                continue;
-
-            var cellScent = pheromones[x, y];
-            if (cellScent <= MinimumFollowableScent)
-                continue;
-
-            totalScent += cellScent;
-
-            if (state == AntState.Returning && cellScent >= currentScent)
-                continue;
-
-            if (!hasBestDirection)
-            {
-                hasBestDirection = true;
-                selectedScent = cellScent;
-                selectedX = relativeX;
-                selectedY = relativeY;
-                continue;
-            }
-
-            var shouldReplace = state == AntState.Returning
-                ? cellScent > selectedScent
-                : cellScent < selectedScent;
-
-            if (shouldReplace ||
-                cellScent == selectedScent && IsBetterScentTieBreak(ant, relativeX, relativeY, selectedX, selectedY))
-            {
-                selectedScent = cellScent;
-                selectedX = relativeX;
-                selectedY = relativeY;
-            }
-        }
-
-        return new ScentSample(totalScent, selectedX, selectedY, selectedScent, hasBestDirection);
-    }
-
-    private static string FormatScent(ScentSample scent) =>
-        $"total={scent.TotalScent:0.###}, selected=({scent.SelectedX},{scent.SelectedY})/{scent.SelectedScent:0.###}, hasDirection={scent.HasDirection}";
-
-    private static string GetScentLayerName(AntState state) =>
-        state == AntState.Searching ? "food" : "home";
-
-    private static string GetScentSelectionRuleName(AntState state) =>
-        state == AntState.Searching ? "lowest positive ahead" : "highest below current";
-
-    private static bool IsBetterScentTieBreak(
-        Ant ant,
-        int relativeX,
-        int relativeY,
-        int selectedX,
-        int selectedY)
-    {
-        var antDirectionX = ant.DirectionX;
-        var antDirectionY = ant.DirectionY;
-
-        var candidateAlignment = relativeX * antDirectionX + relativeY * antDirectionY;
-        var selectedAlignment = selectedX * antDirectionX + selectedY * antDirectionY;
-        return candidateAlignment > selectedAlignment;
-    }
     
-    private (int DirectionX, int DirectionY) CreateRandomDirection()
-    {
-        while (true)
-        {
-            var directionX = m_random.Next(-1, 2);
-            var directionY = m_random.Next(-1, 2);
-            if (directionX != 0 || directionY != 0)
-                return (directionX, directionY);
-        }
-    }
+    private static string FormatPoint(WorldPoint point) =>
+        $"({point.X:0.##},{point.Y:0.##})";
 
     private double CreateRandomTurnRadians() =>
         (m_random.NextDouble() * 2 - 1) * MaximumRandomTurnRadians;
 
-    private readonly record struct ScentSample(
-        float TotalScent,
-        int SelectedX,
-        int SelectedY,
-        float SelectedScent,
-        bool HasDirection)
+    private double CreateRandomHeadingRadians() =>
+        m_random.NextDouble() * Math.PI * 2;
+
+    private double CreateSpawnHeadingRadians(WorldPoint position)
     {
+        var target = SampleNearbyPheromoneTarget(position, m_world.FoodPheromones);
+        if (target.HasTarget)
+            return Math.Atan2(target.Position.Y - position.Y, target.Position.X - position.X);
+
+        return CreateRandomHeadingRadians();
     }
+
+    private static PheromoneTarget SampleNearbyPheromoneTarget(WorldPoint position, PheromoneField pheromones)
+    {
+        var selectedPosition = WorldPoint.Zero;
+        var selectedStrength = 0f;
+        var selectedDistanceSquared = double.MaxValue;
+        var hasTarget = false;
+
+        foreach (var blob in pheromones.Blobs)
+        {
+            var detectionRadius = SensorDistance + SensorRadius + blob.Radius;
+            var distanceSquared = blob.Position.DistanceSquared(position);
+            if (distanceSquared <= double.Epsilon ||
+                distanceSquared > detectionRadius * detectionRadius)
+            {
+                continue;
+            }
+
+            if (hasTarget &&
+                (blob.Strength < selectedStrength ||
+                    blob.Strength == selectedStrength && distanceSquared >= selectedDistanceSquared))
+            {
+                continue;
+            }
+
+            selectedPosition = blob.Position;
+            selectedStrength = blob.Strength;
+            selectedDistanceSquared = distanceSquared;
+            hasTarget = true;
+        }
+
+        return new PheromoneTarget(selectedPosition, hasTarget);
+    }
+
+    private readonly record struct ScentSample(
+        double SelectedAngleOffset,
+        float SelectedStrength,
+        bool HasSignal);
+
+    private readonly record struct FoodSample(WorldPoint Position, bool HasFood);
+
+    private readonly record struct HomeSample(WorldPoint Position, bool HasHome);
+
+    private readonly record struct PheromoneTarget(WorldPoint Position, bool HasTarget);
 }
 
 /// <summary>
@@ -689,6 +692,7 @@ public sealed class World
 {
     public const int DefaultWidth = 640;
     public const int DefaultHeight = 480;
+    public const int FoodBlobsPerSource = 40;
 
     public World()
         : this(DefaultWidth, DefaultHeight)
@@ -704,9 +708,9 @@ public sealed class World
 
         Width = width;
         Height = height;
-        NestPosition = new IntPoint(width / 2, height / 2);
-        HomePheromones = new PheromoneData(width, height);
-        FoodPheromones = new PheromoneData(width, height);
+        NestPosition = new WorldPoint(width / 2.0, height / 2.0);
+        HomePheromones = new PheromoneField();
+        FoodPheromones = new PheromoneField();
         FoodSources = CreateFoodSources(foodSourceCount, randomSeed);
     }
 
@@ -714,15 +718,29 @@ public sealed class World
 
     public int Height { get; }
 
-    public IntPoint NestPosition { get; }
+    public WorldPoint NestPosition { get; }
 
-    public PheromoneData HomePheromones { get; }
+    public PheromoneField HomePheromones { get; }
 
-    public PheromoneData FoodPheromones { get; }
+    public PheromoneField FoodPheromones { get; }
 
     public IReadOnlyList<FoodSource> FoodSources { get; }
 
-    public bool IsFood(IntPoint position)
+    public bool HasFoodRemaining
+    {
+        get
+        {
+            foreach (var source in FoodSources)
+            {
+                if (!source.IsDepleted)
+                    return true;
+            }
+
+            return false;
+        }
+    }
+
+    public bool IsFood(WorldPoint position)
     {
         foreach (var source in FoodSources)
         {
@@ -733,10 +751,21 @@ public sealed class World
         return false;
     }
 
-    public bool Contains(IntPoint position) =>
+    public bool TryConsumeFood(WorldPoint position)
+    {
+        foreach (var source in FoodSources)
+        {
+            if (source.TryConsume(position))
+                return true;
+        }
+
+        return false;
+    }
+
+    public bool Contains(WorldPoint position) =>
         position.X >= 0 && position.Y >= 0 && position.X < Width && position.Y < Height;
 
-    public IntPoint Clamp(IntPoint position) =>
+    public WorldPoint Clamp(WorldPoint position) =>
         new(Math.Clamp(position.X, 0, Width - 1), Math.Clamp(position.Y, 0, Height - 1));
 
     public void Tick(float pheromoneRetention)
@@ -747,47 +776,66 @@ public sealed class World
 
     private IReadOnlyList<FoodSource> CreateFoodSources(int foodSourceCount, int randomSeed)
     {
-        var sources = new List<FoodSource>(foodSourceCount);
+        var sources = new List<FoodSource>(foodSourceCount * FoodBlobsPerSource);
         var random = new Random(randomSeed);
-        var maxRadius = Math.Max(1, Math.Min(22, Math.Min(Width, Height) / 3));
-        var preferredRadius = Math.Max(1, Math.Min(Width, Height) / 28);
-        var radius = Math.Clamp(Math.Max(preferredRadius, Math.Min(8, maxRadius)), 1, maxRadius);
-        var minimumDistanceSquared = Math.Pow(radius * 2, 2);
-        var minimumNestDistanceSquared = Math.Max(minimumDistanceSquared, Math.Pow(Math.Min(Width, Height) * 0.22, 2));
+        var blobRadius = Math.Clamp(Math.Min(Width, Height) / 110.0, 1.2, 2.8);
+        var vicinityRadius = Math.Clamp(Math.Min(Width, Height) / 16.0, blobRadius * 5, 28);
+        var minimumClusterDistanceSquared = Math.Pow(vicinityRadius * 2, 2);
+        var minimumNestDistanceSquared = Math.Max(minimumClusterDistanceSquared, Math.Pow(Math.Min(Width, Height) * 0.22, 2));
+        var clusterCenters = new List<WorldPoint>(foodSourceCount);
 
         for (var i = 0; i < foodSourceCount; i++)
         {
-            var position = CreateFoodSourcePosition(random, radius, minimumNestDistanceSquared, minimumDistanceSquared, sources);
-            sources.Add(new FoodSource(position, radius));
+            var center = CreateFoodSourcePosition(random, vicinityRadius, minimumNestDistanceSquared, minimumClusterDistanceSquared, clusterCenters);
+            clusterCenters.Add(center);
+            AddFoodBlobCluster(random, sources, center, vicinityRadius, blobRadius);
         }
 
         return sources;
     }
 
-    private IntPoint CreateFoodSourcePosition(
+    private void AddFoodBlobCluster(
         Random random,
-        int radius,
+        List<FoodSource> sources,
+        WorldPoint center,
+        double vicinityRadius,
+        double blobRadius)
+    {
+        for (var i = 0; i < FoodBlobsPerSource; i++)
+        {
+            var distance = Math.Sqrt(random.NextDouble()) * vicinityRadius;
+            var angle = random.NextDouble() * Math.PI * 2;
+            var position = Clamp(center.WithDelta(
+                Math.Cos(angle) * distance,
+                Math.Sin(angle) * distance));
+            sources.Add(new FoodSource(position, blobRadius, 1));
+        }
+    }
+
+    private WorldPoint CreateFoodSourcePosition(
+        Random random,
+        double margin,
         double minimumNestDistanceSquared,
         double minimumDistanceSquared,
-        List<FoodSource> existingSources)
+        List<WorldPoint> existingCenters)
     {
         for (var attempt = 0; attempt < 100; attempt++)
         {
-            var minX = Math.Min(radius, Width - 1);
-            var minY = Math.Min(radius, Height - 1);
-            var maxX = Math.Max(minX + 1, Width - radius);
-            var maxY = Math.Max(minY + 1, Height - radius);
-            var position = new IntPoint(
-                Math.Clamp(random.Next(minX, maxX), 0, Width - 1),
-                Math.Clamp(random.Next(minY, maxY), 0, Height - 1));
+            var minX = Math.Min(margin, Width - 1);
+            var minY = Math.Min(margin, Height - 1);
+            var maxX = Math.Max(minX + 1, Width - margin);
+            var maxY = Math.Max(minY + 1, Height - margin);
+            var position = new WorldPoint(
+                Math.Clamp(random.NextDouble() * (maxX - minX) + minX, 0, Width - 1),
+                Math.Clamp(random.NextDouble() * (maxY - minY) + minY, 0, Height - 1));
 
             if (position.DistanceSquared(NestPosition) < minimumNestDistanceSquared)
                 continue;
 
             var tooCloseToOtherSource = false;
-            foreach (var source in existingSources)
+            foreach (var center in existingCenters)
             {
-                if (position.DistanceSquared(source.Position) < minimumDistanceSquared)
+                if (position.DistanceSquared(center) < minimumDistanceSquared)
                 {
                     tooCloseToOtherSource = true;
                     break;
@@ -798,6 +846,6 @@ public sealed class World
                 return position;
         }
 
-        return new IntPoint(Math.Clamp(Width - radius - 1, 0, Width - 1), Math.Clamp(radius, 0, Height - 1));
+        return new WorldPoint(Math.Clamp(Width - margin - 1, 0, Width - 1), Math.Clamp(margin, 0, Height - 1));
     }
 }

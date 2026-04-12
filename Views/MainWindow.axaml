@@ -27,6 +27,9 @@
         <MenuItem Header="_Food pheromones"
                   ToggleType="CheckBox"
                   IsChecked="{Binding IsFoodPheromoneVisible, Mode=TwoWay}" />
+        <MenuItem Header="_Sensor overlay"
+                  ToggleType="CheckBox"
+                  IsChecked="{Binding IsSensorOverlayVisible, Mode=TwoWay}" />
       </MenuItem>
       <MenuItem Header="_Help">
         <MenuItem Header="_About G33kColony"
@@ -39,6 +42,7 @@
                             Colony="{Binding Colony}"
                             ShowHomePheromones="{Binding IsHomePheromoneVisible}"
                             ShowFoodPheromones="{Binding IsFoodPheromoneVisible}"
+                            ShowSensorOverlay="{Binding IsSensorOverlayVisible}"
                             FrameNumber="{Binding FrameNumber}" />
 
       <Border HorizontalAlignment="Right"
@@ -55,6 +59,15 @@
                      FontWeight="SemiBold"
                      Text="Controls"
                      ToolTip.Tip="Tune the running simulation." />
+
+          <CheckBox Content="Sensor overlay"
+                    IsChecked="{Binding IsSensorOverlayVisible, Mode=TwoWay}"
+                    ToolTip.Tip="Show the three look-ahead sample areas for each live ant." />
+
+          <Button Content="Reset settings"
+                  HorizontalAlignment="Stretch"
+                  Command="{Binding ResetSettingsCommand}"
+                  ToolTip.Tip="Restore the default controls and restart the simulation." />
 
           <Grid ColumnDefinitions="*,Auto,Auto">
             <TextBox Grid.Column="0"
@@ -155,9 +168,9 @@
                        Text="{Binding AntCount}" />
             <Slider Grid.Row="1"
                     Grid.ColumnSpan="2"
-                    Minimum="25"
+                    Minimum="1"
                     Maximum="1000"
-                    TickFrequency="25"
+                    TickFrequency="1"
                     IsSnapToTickEnabled="True"
                     Value="{Binding AntCount, Mode=TwoWay}"
                     ToolTip.Tip="Restarts immediately so the new colony size can be applied." />
