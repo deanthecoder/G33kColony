@@ -47,12 +47,7 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
     {
     }
 
-    internal MainWindowViewModel(bool startTimer)
-        : this(startTimer, null)
-    {
-    }
-
-    internal MainWindowViewModel(bool startTimer, IAppSettings settings)
+    internal MainWindowViewModel(bool startTimer, IAppSettings settings = null)
     {
         m_settings = settings;
         GoCommand = new RelayCommand(_ => RestartGame());
@@ -215,6 +210,8 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
 
     public int FoodReturnedHomeCount => Colony?.FoodReturnedHomeCount ?? 0;
 
+    public int FoodRemaining => World?.FoodRemaining ?? 0;
+
     public void Tick()
     {
         for (var i = 0; i < StepsPerTick; i++)
@@ -223,6 +220,7 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
         World.Tick((float)(1 - PheromoneDecayRate));
         OnPropertyChanged(nameof(FoodFoundCount));
         OnPropertyChanged(nameof(FoodReturnedHomeCount));
+        OnPropertyChanged(nameof(FoodRemaining));
         FrameNumber++;
     }
 
@@ -237,6 +235,7 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
         ApplyColonySettings();
         OnPropertyChanged(nameof(FoodFoundCount));
         OnPropertyChanged(nameof(FoodReturnedHomeCount));
+        OnPropertyChanged(nameof(FoodRemaining));
     }
 
     public void NewSeed()

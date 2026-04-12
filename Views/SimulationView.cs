@@ -24,6 +24,8 @@ namespace G33kColony.Views;
 /// </summary>
 public sealed class SimulationView : Control
 {
+    private const int AntBodyLengthPixels = 3;
+
     public static readonly StyledProperty<World> WorldProperty =
         AvaloniaProperty.Register<SimulationView, World>(nameof(World));
 
@@ -185,10 +187,10 @@ public sealed class SimulationView : Control
             SetPixel(i, 18, 18, 18);
 
         if (ShowHomePheromones)
-            DrawPheromones(World.HomePheromones, 0, 1.0, 1.0);
+            DrawPheromones(World.HomePheromones, 1.0, 0.32, 0.32);
 
         if (ShowFoodPheromones)
-            DrawPheromones(World.FoodPheromones, 1.0, 0.25, 0);
+            DrawPheromones(World.FoodPheromones, 1.0, 0.82, 0.28);
 
         DrawFoodSources();
         DrawNest();
@@ -218,18 +220,13 @@ public sealed class SimulationView : Control
                 continue;
 
             var ratio = source.InitialAmount == 0 ? 0 : (double)source.RemainingAmount / source.InitialAmount;
-            AddCircle(source.Position, source.Radius, (int)(90 + 40 * ratio), (int)(150 + 80 * ratio), 70);
+            AddCircle(source.Position, source.Radius, (int)(175 + 70 * ratio), (int)(145 + 90 * ratio), 55);
         }
     }
 
     private void DrawNest()
     {
-        var nest = World.NestPosition;
-        AddCircle(nest, Colony.NestArrivalRadius * 2.8, 40, 120, 210);
-        AddCircle(nest, Colony.NestArrivalRadius * 1.7, 230, 245, 255);
-        AddCircle(nest, Colony.NestArrivalRadius, 255, 255, 255);
-        AddCircleOutline(nest, Colony.NestArrivalRadius * 2.8, 80, 190, 255);
-        AddCircleOutline(nest, Colony.NestArrivalRadius * 1.7, 255, 255, 255);
+        FillCircle(World.NestPosition, Colony.NestRadius, 255, 145, 150);
     }
 
     private void DrawAnts()
@@ -249,10 +246,32 @@ public sealed class SimulationView : Control
 
             var index = y * World.Width + x;
             if (ant.State == AntState.Returning)
-                SetPixel(index, 235, 55, 45);
+                DrawAntBody(ant, index, 250, 220, 90);
+            else if (ant.IsInLaunchPhase)
+                DrawAntBody(ant, index, 255, 135, 140);
             else
-                SetPixel(index, 245, 245, 230);
+                DrawAntBody(ant, index, 255, 175, 178);
         }
+    }
+
+    private void DrawAntBody(Ant ant, int headIndex, int red, int green, int blue)
+    {
+        for (var i = AntBodyLengthPixels; i > 0; i--)
+        {
+            var tailX = (int)Math.Round(ant.Position.X - ant.DirectionX * i);
+            var tailY = (int)Math.Round(ant.Position.Y - ant.DirectionY * i);
+            if (tailX < 0 || tailY < 0 || tailX >= World.Width || tailY >= World.Height)
+                continue;
+
+            var brightness = 0.45 + 0.15 * (AntBodyLengthPixels - i);
+            SetPixel(
+                tailY * World.Width + tailX,
+                (int)(red * brightness),
+                (int)(green * brightness),
+                (int)(blue * brightness));
+        }
+
+        SetPixel(headIndex, red, green, blue);
     }
 
     private void DrawSensorOverlay()
@@ -265,10 +284,17 @@ public sealed class SimulationView : Control
             if (!ant.IsAlive)
                 continue;
 
+            DrawAntBodyRadius(ant);
             DrawSensorArea(ant, -Colony.SensorAngleRadians, 40, 120, 255);
             DrawSensorArea(ant, 0, 245, 245, 245);
             DrawSensorArea(ant, Colony.SensorAngleRadians, 255, 210, 50);
         }
+    }
+
+    private void DrawAntBodyRadius(Ant ant)
+    {
+        AddCircle(ant.Position, Colony.AntRadius, 60, 60, 60);
+        AddCircleOutline(ant.Position, Colony.AntRadius, 255, 120, 120);
     }
 
     private void DrawSensorArea(Ant ant, double angleOffset, int red, int green, int blue)
@@ -323,6 +349,26 @@ public sealed class SimulationView : Control
 
             var falloff = 1 - Math.Sqrt(distanceSquared) / radius;
             AddPixel(y * World.Width + x, (int)(red * falloff), (int)(green * falloff), (int)(blue * falloff));
+        }
+    }
+
+    private void FillCircle(WorldPoint center, double radius, int red, int green, int blue)
+    {
+        var minX = Math.Max(0, (int)Math.Floor(center.X - radius));
+        var maxX = Math.Min(World.Width - 1, (int)Math.Ceiling(center.X + radius));
+        var minY = Math.Max(0, (int)Math.Floor(center.Y - radius));
+        var maxY = Math.Min(World.Height - 1, (int)Math.Ceiling(center.Y + radius));
+        var radiusSquared = radius * radius;
+
+        for (var y = minY; y <= maxY; y++)
+        for (var x = minX; x <= maxX; x++)
+        {
+            var deltaX = x - center.X;
+            var deltaY = y - center.Y;
+            if (deltaX * deltaX + deltaY * deltaY > radiusSquared)
+                continue;
+
+            SetPixel(y * World.Width + x, red, green, blue);
         }
     }
 

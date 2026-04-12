@@ -18,16 +18,16 @@ namespace G33kColony.Services;
 /// </summary>
 internal sealed class AppSettings : UserSettingsBase, IAppSettings
 {
-    public const int DefaultAntCount = 10;
-    public const int DefaultAntMaximumLife = 1000;
-    public const int DefaultFoodSourceCount = 1;
+    public const int DefaultAntCount = 500;
+    public const int DefaultAntMaximumLife = 500;
+    public const int DefaultFoodSourceCount = 2;
     public const int DefaultStepsPerTick = 1;
-    public const double DefaultPheromoneDecayRate = 0.012;
-    public const double DefaultPheromoneDepositAmount = 2.4;
-    public const double DefaultTurnChance = 0.55;
-    public const double DefaultRandomTurnDegrees = 35;
-    public const bool DefaultIsHomePheromoneVisible = true;
-    public const bool DefaultIsFoodPheromoneVisible = true;
+    public const double DefaultPheromoneDecayRate = 0.01;
+    public const double DefaultPheromoneDepositAmount = 4.0;
+    public const double DefaultTurnChance = 0.5;
+    public const double DefaultRandomTurnDegrees = 20.0;
+    public const bool DefaultIsHomePheromoneVisible = false;
+    public const bool DefaultIsFoodPheromoneVisible = false;
     public const bool DefaultIsSensorOverlayVisible = false;
 
     protected override string SettingsFileName => "ui-settings.json";

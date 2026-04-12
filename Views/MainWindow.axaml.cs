@@ -34,9 +34,6 @@ public partial class MainWindow : Window
         DataContext = m_viewModel;
     }
 
-    private void OnAboutButtonClick(object sender, RoutedEventArgs e) =>
-        ShowAboutDialog();
-
     private void OnAboutMenuItemClick(object sender, RoutedEventArgs e) =>
         ShowAboutDialog();
 

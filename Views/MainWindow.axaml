@@ -48,14 +48,14 @@
       <Border HorizontalAlignment="Right"
               VerticalAlignment="Top"
               Margin="12"
-              Padding="10"
+              Padding="8"
               Background="#D8202020"
               BorderBrush="#5AFFFFFF"
               BorderThickness="1"
               CornerRadius="6">
-        <StackPanel Width="230"
-                    Spacing="8">
-          <TextBlock FontSize="13"
+        <StackPanel Width="205"
+                    Spacing="5">
+          <TextBlock FontSize="12"
                      FontWeight="SemiBold"
                      Text="Controls"
                      ToolTip.Tip="Tune the running simulation." />
@@ -75,14 +75,14 @@
                      Watermark="Seed"
                      ToolTip.Tip="Seed used when starting a new simulation. Edit it, then press Go." />
             <Button Grid.Column="1"
-                    Margin="6,0,0,0"
-                    MinWidth="46"
+                    Margin="4,0,0,0"
+                    MinWidth="40"
                     Content="New"
                     Command="{Binding NewSeedCommand}"
                     ToolTip.Tip="Generate a random seed and restart." />
             <Button Grid.Column="2"
-                    Margin="6,0,0,0"
-                    MinWidth="38"
+                    Margin="4,0,0,0"
+                    MinWidth="34"
                     Content="Go"
                     Command="{Binding GoCommand}"
                     ToolTip.Tip="Restart using the current seed and slider values." />
@@ -208,18 +208,11 @@
                     ToolTip.Tip="Restarts immediately so the food blobs can be regenerated." />
           </Grid>
 
-          <Grid RowDefinitions="Auto,Auto"
-                ColumnDefinitions="*,Auto">
-            <TextBlock Text="Found food"
-                       ToolTip.Tip="Number of food discoveries since the current simulation started." />
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="Food remains"
+                       ToolTip.Tip="Total servings left across all remaining food blobs." />
             <TextBlock Grid.Column="1"
-                       Text="{Binding FoodFoundCount}" />
-            <TextBlock Grid.Row="1"
-                       Text="Returned home"
-                       ToolTip.Tip="Number of food-carrying ants that returned home since the current simulation started." />
-            <TextBlock Grid.Row="1"
-                       Grid.Column="1"
-                       Text="{Binding FoodReturnedHomeCount}" />
+                       Text="{Binding FoodRemaining}" />
           </Grid>
         </StackPanel>
       </Border>

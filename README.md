@@ -36,6 +36,7 @@ The world contains:
 Each ant has:
 - an absolute position
 - a heading
+- a small body radius used to avoid overlapping other ants
 - a state:
   - `Searching`
   - `Returning`
@@ -100,6 +101,7 @@ At each simulation tick:
      - current heading
      - small random angle changes
    - moves forward one step
+   - tries a nearby heading instead if that step would overlap another ant
    - periodically deposits pheromone depending on state
    - ages, unless it has just found food
 
@@ -121,7 +123,7 @@ The simulation renders continuous positions to a bitmap:
 Potential overlays:
 - food pheromone
 - home pheromone
-- ant look-ahead sensor areas
+- ant look-ahead sensor areas and body radius
 - ant paths / density
 
 Current first pass:

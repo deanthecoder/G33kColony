@@ -238,6 +238,25 @@ public class SimulationModelTests
     }
 
     [Test]
+    public void ReturningAntDoesNotTurnAwayFromHomeWhenNearSearchingAnt()
+    {
+        var world = new World(80, 80, 1, 12);
+        var colony = new Colony(world, 0, 7)
+        {
+            TurnChance = 0
+        };
+        var returningAnt = colony.AddAnt(world.NestPosition.WithDelta(10, 0), -1, 0);
+        returningAnt.SetState(AntState.Returning);
+        colony.AddAnt(world.NestPosition.WithDelta(4, 0), 1, 0);
+        var distanceBefore = returningAnt.Position.DistanceSquared(world.NestPosition);
+
+        colony.Tick();
+
+        Assert.That(returningAnt.DirectionX, Is.LessThanOrEqualTo(0));
+        Assert.That(returningAnt.Position.DistanceSquared(world.NestPosition), Is.LessThan(distanceBefore));
+    }
+
+    [Test]
     public void SpawnedAntHeadsTowardNearbyFoodScent()
     {
         var world = new World(80, 80, 1, 12);
@@ -331,7 +350,67 @@ public class SimulationModelTests
     }
 
     [Test]
-    public void AntWaitsToRespawnAtNestUntilHomeIsClear()
+    public void AntMovesAroundOccupiedTarget()
+    {
+        var world = new World(80, 80, 1, 12);
+        var colony = new Colony(world, 0, 7)
+        {
+            TurnChance = 0
+        };
+        var movingAnt = colony.AddAnt(new WorldPoint(40, 40), 1, 0);
+        var blockingAnt = colony.AddAnt(new WorldPoint(41.4, 40), 1, 0);
+        var distanceBefore = movingAnt.Position.DistanceSquared(blockingAnt.Position);
+
+        colony.Tick();
+
+        Assert.That(movingAnt.Position, Is.Not.EqualTo(new WorldPoint(41.4, 40)));
+        Assert.That(movingAnt.Position, Is.Not.EqualTo(new WorldPoint(40, 40)));
+        Assert.That(movingAnt.Position.DistanceSquared(blockingAnt.Position), Is.GreaterThan(distanceBefore));
+    }
+
+    [Test]
+    public void OverlappingAntsSteerApart()
+    {
+        var world = new World(80, 80, 1, 12);
+        var colony = new Colony(world, 0, 7)
+        {
+            TurnChance = 0
+        };
+        var movingAnt = colony.AddAnt(new WorldPoint(40, 40), 1, 0);
+        var blockingAnt = colony.AddAnt(new WorldPoint(40, 40), 1, 0);
+
+        colony.Tick();
+
+        Assert.That(movingAnt.Position.DistanceSquared(blockingAnt.Position), Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void AntStaysStillWhenAllNearbyMovesAreOccupied()
+    {
+        var world = new World(80, 80, 1, 12);
+        var colony = new Colony(world, 0, 7)
+        {
+            AntMaximumLife = 10,
+            TurnChance = 0
+        };
+        var movingAnt = colony.AddAnt(new WorldPoint(40, 40), 1, 0);
+        for (var i = 0; i < 8; i++)
+        {
+            var heading = i * Math.PI / 4;
+            colony.AddAnt(
+                movingAnt.Position.WithDelta(Math.Cos(heading) * 1.4, Math.Sin(heading) * 1.4),
+                1,
+                0);
+        }
+
+        colony.Tick();
+
+        Assert.That(movingAnt.Position, Is.EqualTo(new WorldPoint(40, 40)));
+        Assert.That(movingAnt.LifeRemaining, Is.EqualTo(9));
+    }
+
+    [Test]
+    public void AntRespawnsNearNestWhenNestIsBlocked()
     {
         var world = new World(80, 80, 1, 12);
         var colony = new Colony(world, 0, 7)
@@ -344,18 +423,14 @@ public class SimulationModelTests
 
         colony.Tick();
 
-        Assert.That(expiringAnt.IsAlive, Is.False);
-
-        blockingAnt.MoveTo(world.NestPosition.WithDelta(Colony.AntCollisionRadius * 2, 0));
-        colony.Tick();
-
         Assert.That(expiringAnt.IsAlive, Is.True);
-        Assert.That(expiringAnt.Position, Is.EqualTo(world.NestPosition));
+        Assert.That(expiringAnt.Position, Is.Not.EqualTo(world.NestPosition));
+        Assert.That(expiringAnt.Position.DistanceSquared(world.NestPosition), Is.EqualTo(Colony.SpawnRadius * Colony.SpawnRadius).Within(0.001));
         Assert.That(expiringAnt.LifeRemaining, Is.EqualTo(1));
     }
 
     [Test]
-    public void AntsSpawnFromHomeAndQueueWhenHomeIsBlocked()
+    public void AntsSpawnNearHomeWhenHomeIsBlocked()
     {
         var world = new World(640, 480, 1, 12);
         var colony = new Colony(world, 2, 7)
@@ -364,15 +439,10 @@ public class SimulationModelTests
         };
 
         Assert.That(colony.Ants, Has.Count.EqualTo(2));
-        Assert.That(colony.Ants.Count(ant => ant.IsAlive), Is.EqualTo(1));
-        Assert.That(colony.Ants[0].Position, Is.EqualTo(world.NestPosition));
-        Assert.That(colony.Ants[1].IsAlive, Is.False);
-
-        for (var i = 0; i < 4; i++)
-            colony.Tick();
-
         Assert.That(colony.Ants.Count(ant => ant.IsAlive), Is.EqualTo(2));
-        Assert.That(colony.Ants[1].Position, Is.EqualTo(world.NestPosition));
+        Assert.That(colony.Ants[0].Position, Is.EqualTo(world.NestPosition));
+        Assert.That(colony.Ants[1].Position, Is.Not.EqualTo(world.NestPosition));
+        Assert.That(colony.Ants[1].Position.DistanceSquared(world.NestPosition), Is.EqualTo(Colony.SpawnRadius * Colony.SpawnRadius).Within(0.001));
     }
 
     [Test]
@@ -425,7 +495,7 @@ public class SimulationModelTests
         }
 
         Assert.That(ant.State, Is.EqualTo(AntState.Searching));
-        Assert.That(ant.Position.DistanceSquared(world.NestPosition), Is.LessThanOrEqualTo(Colony.NestArrivalRadius * Colony.NestArrivalRadius));
+        Assert.That(ant.Position.DistanceSquared(world.NestPosition), Is.LessThanOrEqualTo(Colony.NestRadius * Colony.NestRadius));
     }
 
     [Test]
@@ -459,8 +529,8 @@ public class SimulationModelTests
         var trailBlob = FindFoodTrailBlobClosestToNest(world);
         var (directionX, directionY) = CreateUnitDirection(trailBlob.Position, food.Position);
         var spawnPosition = world.Clamp(trailBlob.Position.WithDelta(
-            -directionX * Colony.AntCollisionRadius,
-            -directionY * Colony.AntCollisionRadius));
+            -directionX * Colony.AntRadius,
+            -directionY * Colony.AntRadius));
         var secondAnt = colony.AddAnt(spawnPosition, directionX, directionY);
         for (var i = 0; i < 120 && secondAnt.State == AntState.Searching; i++)
         {
@@ -480,7 +550,7 @@ public class SimulationModelTests
         foreach (var blob in world.FoodPheromones.Blobs)
         {
             if (world.IsFood(blob.Position) ||
-                blob.Position.DistanceSquared(world.NestPosition) <= Colony.NestArrivalRadius * Colony.NestArrivalRadius)
+                blob.Position.DistanceSquared(world.NestPosition) <= Colony.NestRadius * Colony.NestRadius)
             {
                 continue;
             }
