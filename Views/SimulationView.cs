@@ -12,6 +12,7 @@ using System;
 using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -25,6 +26,7 @@ namespace G33kColony.Views;
 public sealed class SimulationView : Control
 {
     private const int AntBodyLengthPixels = 3;
+    private const double ObstacleBrushRadius = 6;
 
     public static readonly StyledProperty<World> WorldProperty =
         AvaloniaProperty.Register<SimulationView, World>(nameof(World));
@@ -46,6 +48,8 @@ public sealed class SimulationView : Control
 
     private WriteableBitmap m_bitmap;
     private byte[] m_pixels;
+    private bool m_isDrawingObstacle;
+    private bool m_isErasingObstacle;
 
     public World World
     {
@@ -126,6 +130,60 @@ public sealed class SimulationView : Control
         base.OnDetachedFromVisualTree(e);
     }
 
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        base.OnPointerPressed(e);
+
+        if (World == null)
+            return;
+
+        var point = e.GetCurrentPoint(this);
+        var shouldErase = ShouldErase(point, e.KeyModifiers);
+        var shouldDraw = point.Properties.IsLeftButtonPressed && !shouldErase;
+        if (!shouldDraw && !shouldErase)
+            return;
+
+        if (!TryGetWorldPosition(e.GetPosition(this), out var worldPosition))
+            return;
+
+        m_isDrawingObstacle = shouldDraw;
+        m_isErasingObstacle = shouldErase;
+        ApplyObstacleBrush(worldPosition);
+        e.Pointer.Capture(this);
+        e.Handled = true;
+    }
+
+    protected override void OnPointerMoved(PointerEventArgs e)
+    {
+        base.OnPointerMoved(e);
+
+        if (!m_isDrawingObstacle && !m_isErasingObstacle)
+            return;
+
+        var point = e.GetCurrentPoint(this);
+        var shouldErase = ShouldErase(point, e.KeyModifiers);
+        var shouldDraw = point.Properties.IsLeftButtonPressed && !shouldErase;
+        if (!shouldDraw && !shouldErase)
+            return;
+
+        m_isDrawingObstacle = shouldDraw;
+        m_isErasingObstacle = shouldErase;
+        if (World == null || !TryGetWorldPosition(e.GetPosition(this), out var worldPosition))
+            return;
+
+        ApplyObstacleBrush(worldPosition);
+        e.Handled = true;
+    }
+
+    protected override void OnPointerReleased(PointerReleasedEventArgs e)
+    {
+        base.OnPointerReleased(e);
+
+        m_isDrawingObstacle = false;
+        m_isErasingObstacle = false;
+        e.Pointer.Capture(null);
+    }
+
     private void RenderWorld()
     {
         if (World == null)
@@ -192,10 +250,28 @@ public sealed class SimulationView : Control
         if (ShowFoodPheromones)
             DrawPheromones(World.FoodPheromones, 1.0, 0.82, 0.28);
 
+        DrawObstacles();
         DrawFoodSources();
         DrawNest();
         DrawSensorOverlay();
         DrawAnts();
+    }
+
+    private void DrawObstacles()
+    {
+        if (!World.HasObstacles)
+            return;
+
+        for (var y = 0; y < World.Height; y++)
+        {
+            for (var x = 0; x < World.Width; x++)
+            {
+                if (!World.IsObstacleCell(x, y))
+                    continue;
+
+                SetPixel(y * World.Width + x, 95, 95, 105);
+            }
+        }
     }
 
     private void DrawPheromones(PheromoneField pheromones, double redScale, double greenScale, double blueScale)
@@ -319,6 +395,41 @@ public sealed class SimulationView : Control
         var x = (Bounds.Width - width) / 2;
         var y = (Bounds.Height - height) / 2;
         return new Rect(x, y, width, height);
+    }
+
+    private void ApplyObstacleBrush(WorldPoint worldPosition)
+    {
+        var isObstacle = !m_isErasingObstacle;
+        World.SetObstacleCircle(worldPosition, ObstacleBrushRadius, isObstacle);
+        RenderWorld();
+        InvalidateVisual();
+    }
+
+    private bool TryGetWorldPosition(Point viewPosition, out WorldPoint worldPosition)
+    {
+        worldPosition = WorldPoint.Zero;
+        if (World == null)
+            return false;
+
+        var destination = GetUniformDestinationRect(World.Width, World.Height);
+        if (destination.Width <= 0 || destination.Height <= 0 || !destination.Contains(viewPosition))
+            return false;
+
+        var worldX = (viewPosition.X - destination.X) * World.Width / destination.Width;
+        var worldY = (viewPosition.Y - destination.Y) * World.Height / destination.Height;
+        worldPosition = new WorldPoint(
+            Math.Clamp(worldX, 0, World.Width - 1),
+            Math.Clamp(worldY, 0, World.Height - 1));
+        return true;
+    }
+
+    private static bool ShouldErase(PointerPoint point, KeyModifiers modifiers)
+    {
+        if (point.Properties.IsRightButtonPressed)
+            return true;
+
+        var eraseModifierHeld = modifiers.HasFlag(KeyModifiers.Alt) || modifiers.HasFlag(KeyModifiers.Control);
+        return eraseModifierHeld && point.Properties.IsLeftButtonPressed;
     }
 
     private void SetPixel(int pixelIndex, int red, int green, int blue)

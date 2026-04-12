@@ -316,7 +316,48 @@ public sealed class Colony
             next = currentPosition.WithDelta(ant.DirectionX * ant.Speed, ant.DirectionY * ant.Speed);
         }
 
+        if (m_world.IsObstacle(next))
+        {
+            if (!TryFindUnblockedStep(ant, currentPosition, out next))
+            {
+                ant.Turn(CreateRandomTurnRadians());
+                return;
+            }
+        }
+
         ant.Position = m_world.Clamp(next);
+    }
+
+    private bool TryFindUnblockedStep(Ant ant, WorldPoint currentPosition, out WorldPoint next)
+    {
+        var candidateOffsets = new[]
+        {
+            Math.PI / 8,
+            -Math.PI / 8,
+            Math.PI / 4,
+            -Math.PI / 4,
+            Math.PI / 2,
+            -Math.PI / 2,
+            Math.PI
+        };
+
+        for (var i = 0; i < candidateOffsets.Length; i++)
+        {
+            var offset = candidateOffsets[i];
+            var heading = ant.HeadingRadians + offset;
+            var candidate = currentPosition.WithDelta(
+                Math.Cos(heading) * ant.Speed,
+                Math.Sin(heading) * ant.Speed);
+            if (!m_world.Contains(candidate) || m_world.IsObstacle(candidate))
+                continue;
+
+            ant.Turn(offset);
+            next = candidate;
+            return true;
+        }
+
+        next = currentPosition;
+        return false;
     }
 
     private void ApplyNeighbourRepulsion(Ant ant, ref double movementX, ref double movementY)

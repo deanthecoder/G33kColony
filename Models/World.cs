@@ -23,6 +23,8 @@ public sealed class World
     private const double FoodBucketSize = 16;
     private readonly Dictionary<(int X, int Y), List<FoodSource>> m_foodBuckets;
     private readonly double m_maxFoodEffectiveRadius;
+    private readonly bool[] m_obstacles;
+    private int m_obstacleCount;
 
     /// <summary>
     /// The number of food blobs generated around each food source vicinity.
@@ -55,6 +57,7 @@ public sealed class World
         FoodSources = CreateFoodSources(foodSourceCount, random);
         m_foodBuckets = BuildFoodBuckets(FoodSources);
         m_maxFoodEffectiveRadius = GetMaximumFoodEffectiveRadius(FoodSources);
+        m_obstacles = new bool[Width * Height];
     }
 
     public int Width { get; }
@@ -68,6 +71,8 @@ public sealed class World
     public PheromoneField FoodPheromones { get; }
 
     public IReadOnlyList<FoodSource> FoodSources { get; }
+
+    public bool HasObstacles => m_obstacleCount > 0;
 
     public bool HasFoodRemaining
     {
@@ -180,6 +185,53 @@ public sealed class World
 
     public WorldPoint Clamp(WorldPoint position) =>
         new(Math.Clamp(position.X, 0, Width - 1), Math.Clamp(position.Y, 0, Height - 1));
+
+    public bool IsObstacle(WorldPoint position)
+    {
+        var x = (int)Math.Round(position.X);
+        var y = (int)Math.Round(position.Y);
+        if (x < 0 || y < 0 || x >= Width || y >= Height)
+            return true;
+
+        return m_obstacles[y * Width + x];
+    }
+
+    public bool IsObstacleCell(int x, int y)
+    {
+        if (x < 0 || y < 0 || x >= Width || y >= Height)
+            return true;
+
+        return m_obstacles[y * Width + x];
+    }
+
+    public void SetObstacleCircle(WorldPoint center, double radius, bool isObstacle)
+    {
+        if (radius <= 0)
+            throw new ArgumentOutOfRangeException(nameof(radius), "Radius must be greater than zero.");
+
+        var minX = Math.Max(0, (int)Math.Floor(center.X - radius));
+        var maxX = Math.Min(Width - 1, (int)Math.Ceiling(center.X + radius));
+        var minY = Math.Max(0, (int)Math.Floor(center.Y - radius));
+        var maxY = Math.Min(Height - 1, (int)Math.Ceiling(center.Y + radius));
+        var radiusSquared = radius * radius;
+
+        for (var y = minY; y <= maxY; y++)
+        for (var x = minX; x <= maxX; x++)
+        {
+            var deltaX = x - center.X;
+            var deltaY = y - center.Y;
+            if (deltaX * deltaX + deltaY * deltaY > radiusSquared)
+                continue;
+
+            var index = y * Width + x;
+            var wasObstacle = m_obstacles[index];
+            if (wasObstacle == isObstacle)
+                continue;
+
+            m_obstacles[index] = isObstacle;
+            m_obstacleCount += isObstacle ? 1 : -1;
+        }
+    }
 
     public void Tick(float pheromoneRetention)
     {

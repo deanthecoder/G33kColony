@@ -60,6 +60,12 @@
                      Text="Controls"
                      ToolTip.Tip="Tune the running simulation." />
 
+          <TextBlock FontSize="11"
+                     Foreground="#D0FFFFFF"
+                     Text="Left-drag draws. Right-drag erases. Option/Alt+drag also erases."
+                     TextWrapping="Wrap"
+                     ToolTip.Tip="Draw obstacles directly on the simulation area." />
+
           <CheckBox Content="Sensor overlay"
                     IsChecked="{Binding IsSensorOverlayVisible, Mode=TwoWay}"
                     ToolTip.Tip="Show the three look-ahead sample areas for each live ant." />
@@ -92,10 +98,10 @@
                 ColumnDefinitions="*,Auto">
             <TextBlock Text="Decay"
                        ToolTip.Tip="How much pheromone evaporates each tick. Higher values fade trails faster." />
-            <TextBlock Grid.Column="1"
+            <TextBlock Grid.Row="0" Grid.Column="1"
                        Text="{Binding PheromoneDecayRatePercent, StringFormat={}{0:0.0}%}" />
             <Slider Grid.Row="1"
-                    Grid.ColumnSpan="2"
+                    Grid.ColumnSpan="2" Grid.Column="0"
                     Minimum="0.001"
                     Maximum="0.08"
                     Value="{Binding PheromoneDecayRate, Mode=TwoWay}"
@@ -106,10 +112,10 @@
                 ColumnDefinitions="*,Auto">
             <TextBlock Text="Trail strength"
                        ToolTip.Tip="How much pheromone each ant deposits per step." />
-            <TextBlock Grid.Column="1"
+            <TextBlock Grid.Row="0" Grid.Column="1"
                        Text="{Binding PheromoneDepositAmount, StringFormat={}{0:0.0}}" />
             <Slider Grid.Row="1"
-                    Grid.ColumnSpan="2"
+                    Grid.ColumnSpan="2" Grid.Column="0"
                     Minimum="0.1"
                     Maximum="8"
                     Value="{Binding PheromoneDepositAmount, Mode=TwoWay}"
@@ -120,10 +126,10 @@
                 ColumnDefinitions="*,Auto">
             <TextBlock Text="Turn randomness"
                        ToolTip.Tip="Chance that an ant applies a random turn each step." />
-            <TextBlock Grid.Column="1"
+            <TextBlock Grid.Row="0" Grid.Column="1"
                        Text="{Binding TurnChancePercent, StringFormat={}{0:0}%}" />
             <Slider Grid.Row="1"
-                    Grid.ColumnSpan="2"
+                    Grid.ColumnSpan="2" Grid.Column="0"
                     Minimum="0"
                     Maximum="1"
                     Value="{Binding TurnChance, Mode=TwoWay}"
@@ -134,10 +140,10 @@
                 ColumnDefinitions="*,Auto">
             <TextBlock Text="Turn angle"
                        ToolTip.Tip="Largest random turn angle in either direction." />
-            <TextBlock Grid.Column="1"
+            <TextBlock Grid.Row="0" Grid.Column="1"
                        Text="{Binding RandomTurnDegrees, StringFormat={}{0:0} deg}" />
             <Slider Grid.Row="1"
-                    Grid.ColumnSpan="2"
+                    Grid.ColumnSpan="2" Grid.Column="0"
                     Minimum="5"
                     Maximum="75"
                     Value="{Binding RandomTurnDegrees, Mode=TwoWay}"
@@ -148,10 +154,10 @@
                 ColumnDefinitions="*,Auto">
             <TextBlock Text="Steps per tick"
                        ToolTip.Tip="How many ant movement steps run each timer tick." />
-            <TextBlock Grid.Column="1"
+            <TextBlock Grid.Row="0" Grid.Column="1"
                        Text="{Binding StepsPerTick}" />
             <Slider Grid.Row="1"
-                    Grid.ColumnSpan="2"
+                    Grid.ColumnSpan="2" Grid.Column="0"
                     Minimum="1"
                     Maximum="6"
                     TickFrequency="1"
@@ -164,10 +170,10 @@
                 ColumnDefinitions="*,Auto">
             <TextBlock Text="Ants"
                        ToolTip.Tip="Number of ants in the colony. Changing this restarts the simulation." />
-            <TextBlock Grid.Column="1"
+            <TextBlock Grid.Row="0" Grid.Column="1"
                        Text="{Binding AntCount}" />
             <Slider Grid.Row="1"
-                    Grid.ColumnSpan="2"
+                    Grid.ColumnSpan="2" Grid.Column="0"
                     Minimum="{Binding AntCountMinimum}"
                     Maximum="{Binding AntCountMaximum}"
                     TickFrequency="1"
@@ -180,10 +186,10 @@
                 ColumnDefinitions="*,Auto">
             <TextBlock Text="Ant life"
                        ToolTip.Tip="Maximum movement steps before an ant respawns at the nest." />
-            <TextBlock Grid.Column="1"
+            <TextBlock Grid.Row="0" Grid.Column="1"
                        Text="{Binding AntMaximumLife}" />
             <Slider Grid.Row="1"
-                    Grid.ColumnSpan="2"
+                    Grid.ColumnSpan="2" Grid.Column="0"
                     Minimum="25"
                     Maximum="5000"
                     TickFrequency="25"
@@ -196,10 +202,10 @@
                 ColumnDefinitions="*,Auto">
             <TextBlock Text="Food sources"
                        ToolTip.Tip="Number of food blobs in the world. Changing this restarts the simulation." />
-            <TextBlock Grid.Column="1"
+            <TextBlock Grid.Row="0" Grid.Column="1"
                        Text="{Binding FoodSourceCount}" />
             <Slider Grid.Row="1"
-                    Grid.ColumnSpan="2"
+                    Grid.ColumnSpan="2" Grid.Column="0"
                     Minimum="1"
                     Maximum="4"
                     TickFrequency="1"

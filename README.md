@@ -19,6 +19,7 @@ The interesting part is how complex-looking behaviour emerges from very simple l
 - Watch ants search for food, collect it, and return to the nest.
 - Tune the simulation while it runs.
 - Change the seed to get a new world layout.
+- Draw and erase obstacles directly in the simulation area while the ants are moving.
 - Toggle pheromone overlays to see the hidden trails ants are following.
 - Toggle the sensor overlay to see the three look-ahead areas each ant samples.
 - Reset settings back to the built-in defaults.
@@ -51,6 +52,11 @@ The main controls let you adjust:
 - Random turn chance and angle
 - Home and food pheromone visibility
 - Sensor overlay visibility
+
+In the simulation view:
+- Left-drag draws obstacles.
+- Right-drag erases obstacles.
+- Option/Alt + left-drag also erases (useful on some trackpads).
 
 Your UI settings are saved when the app exits and restored next time.
 
