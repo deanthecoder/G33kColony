@@ -18,6 +18,7 @@ namespace G33kColony.Models;
 public sealed class FoodSource
 {
     private const double DetectionPadding = 3.5;
+    private readonly double m_effectiveRadiusSquared;
 
     public FoodSource(WorldPoint position, double radius, int amount)
     {
@@ -28,6 +29,8 @@ public sealed class FoodSource
 
         Position = position;
         Radius = radius;
+        EffectiveRadius = Radius + DetectionPadding;
+        m_effectiveRadiusSquared = EffectiveRadius * EffectiveRadius;
         InitialAmount = amount;
         RemainingAmount = amount;
     }
@@ -36,6 +39,8 @@ public sealed class FoodSource
 
     public double Radius { get; }
 
+    public double EffectiveRadius { get; }
+
     public int InitialAmount { get; }
 
     public int RemainingAmount { get; private set; }
@@ -43,7 +48,7 @@ public sealed class FoodSource
     public bool IsDepleted => RemainingAmount <= 0;
 
     public bool Contains(WorldPoint point) =>
-        !IsDepleted && Position.DistanceSquared(point) <= Math.Pow(Radius + DetectionPadding, 2);
+        !IsDepleted && Position.DistanceSquared(point) <= m_effectiveRadiusSquared;
 
     public bool TryConsume(WorldPoint point)
     {

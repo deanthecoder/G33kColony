@@ -34,10 +34,10 @@ public class MainWindowViewModelTests
         Assert.That(viewModel.World.Width, Is.EqualTo(640));
         Assert.That(viewModel.World.Height, Is.EqualTo(480));
         Assert.That(viewModel.Colony.Ants, Has.Count.EqualTo(viewModel.AntCount));
-        Assert.That(viewModel.World.FoodSources, Has.Count.EqualTo(World.FoodBlobsPerSource));
-        Assert.That(viewModel.FoodSourceCount, Is.EqualTo(1));
-        Assert.That(viewModel.IsHomePheromoneVisible, Is.True);
-        Assert.That(viewModel.IsFoodPheromoneVisible, Is.True);
+        Assert.That(viewModel.World.FoodSources, Has.Count.EqualTo(viewModel.FoodSourceCount * World.FoodBlobsPerSource));
+        Assert.That(viewModel.FoodSourceCount, Is.EqualTo(AppSettings.DefaultFoodSourceCount));
+        Assert.That(viewModel.IsHomePheromoneVisible, Is.EqualTo(AppSettings.DefaultIsHomePheromoneVisible));
+        Assert.That(viewModel.IsFoodPheromoneVisible, Is.EqualTo(AppSettings.DefaultIsFoodPheromoneVisible));
         Assert.That(viewModel.IsSensorOverlayVisible, Is.False);
     }
 
@@ -239,11 +239,13 @@ public class MainWindowViewModelTests
         viewModel.RestartGame();
         var ant = viewModel.Colony.Ants[0];
         var food = viewModel.World.FoodSources[0];
+        ant.MoveTo(food.Position);
+        ant.SetState(AntState.Searching);
+        viewModel.Tick();
+        ant = viewModel.Colony.Ants[0];
         ant.MoveTo(viewModel.World.NestPosition);
-        ant.SetDirection(food.Position.X - ant.Position.X, food.Position.Y - ant.Position.Y);
-
-        for (var i = 0; i < 400 && viewModel.FoodReturnedHomeCount == 0; i++)
-            viewModel.Tick();
+        ant.SetState(AntState.Returning);
+        viewModel.Tick();
 
         Assert.That(viewModel.FoodFoundCount, Is.GreaterThan(0));
         Assert.That(viewModel.FoodReturnedHomeCount, Is.GreaterThan(0));

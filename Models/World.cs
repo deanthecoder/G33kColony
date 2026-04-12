@@ -20,6 +20,9 @@ public sealed class World
 {
     public const int DefaultWidth = 640;
     public const int DefaultHeight = 480;
+    private const double FoodBucketSize = 16;
+    private readonly Dictionary<(int X, int Y), List<FoodSource>> m_foodBuckets;
+    private readonly double m_maxFoodEffectiveRadius;
 
     /// <summary>
     /// The number of food blobs generated around each food source vicinity.
@@ -50,6 +53,8 @@ public sealed class World
         HomePheromones = new PheromoneField();
         FoodPheromones = new PheromoneField();
         FoodSources = CreateFoodSources(foodSourceCount, random);
+        m_foodBuckets = BuildFoodBuckets(FoodSources);
+        m_maxFoodEffectiveRadius = GetMaximumFoodEffectiveRadius(FoodSources);
     }
 
     public int Width { get; }
@@ -92,10 +97,20 @@ public sealed class World
 
     public bool IsFood(WorldPoint position)
     {
-        foreach (var source in FoodSources)
+        GetFoodBucketBounds(position, 0, out var minX, out var maxX, out var minY, out var maxY);
+        for (var y = minY; y <= maxY; y++)
         {
-            if (source.Contains(position))
-                return true;
+            for (var x = minX; x <= maxX; x++)
+            {
+                if (!m_foodBuckets.TryGetValue((x, y), out var bucket))
+                    continue;
+
+                for (var i = 0; i < bucket.Count; i++)
+                {
+                    if (bucket[i].Contains(position))
+                        return true;
+                }
+            }
         }
 
         return false;
@@ -103,13 +118,61 @@ public sealed class World
 
     public bool TryConsumeFood(WorldPoint position)
     {
-        foreach (var source in FoodSources)
+        GetFoodBucketBounds(position, 0, out var minX, out var maxX, out var minY, out var maxY);
+        for (var y = minY; y <= maxY; y++)
         {
-            if (source.TryConsume(position))
-                return true;
+            for (var x = minX; x <= maxX; x++)
+            {
+                if (!m_foodBuckets.TryGetValue((x, y), out var bucket))
+                    continue;
+
+                for (var i = 0; i < bucket.Count; i++)
+                {
+                    if (bucket[i].TryConsume(position))
+                        return true;
+                }
+            }
         }
 
         return false;
+    }
+
+    internal void ConsiderNearbyFood(
+        WorldPoint samplePosition,
+        WorldPoint antPosition,
+        double sampleRadius,
+        ref WorldPoint selectedPosition,
+        ref double selectedDistanceSquared,
+        ref bool hasFood)
+    {
+        GetFoodBucketBounds(samplePosition, sampleRadius, out var minX, out var maxX, out var minY, out var maxY);
+        for (var y = minY; y <= maxY; y++)
+        {
+            for (var x = minX; x <= maxX; x++)
+            {
+                if (!m_foodBuckets.TryGetValue((x, y), out var bucket))
+                    continue;
+
+                for (var i = 0; i < bucket.Count; i++)
+                {
+                    var source = bucket[i];
+                    if (source.IsDepleted)
+                        continue;
+
+                    var detectionRadius = sampleRadius + source.Radius;
+                    if (source.Position.DistanceSquared(samplePosition) > detectionRadius * detectionRadius)
+                        continue;
+
+                    var distanceSquared = source.Position.DistanceSquared(antPosition);
+                    if (hasFood && distanceSquared >= selectedDistanceSquared)
+                        continue;
+
+                    selectedPosition = source.Position;
+                    selectedDistanceSquared = distanceSquared;
+                    hasFood = true;
+                }
+            }
+        }
     }
 
     public bool Contains(WorldPoint position) =>
@@ -210,4 +273,49 @@ public sealed class World
 
         return new WorldPoint(Math.Clamp(Width - margin - 1, 0, Width - 1), Math.Clamp(margin, 0, Height - 1));
     }
+
+    private void GetFoodBucketBounds(
+        WorldPoint position,
+        double sampleRadius,
+        out int minX,
+        out int maxX,
+        out int minY,
+        out int maxY)
+    {
+        var lookupRadius = sampleRadius + m_maxFoodEffectiveRadius;
+        minX = ToBucketIndex(position.X - lookupRadius);
+        maxX = ToBucketIndex(position.X + lookupRadius);
+        minY = ToBucketIndex(position.Y - lookupRadius);
+        maxY = ToBucketIndex(position.Y + lookupRadius);
+    }
+
+    private Dictionary<(int X, int Y), List<FoodSource>> BuildFoodBuckets(IReadOnlyList<FoodSource> foodSources)
+    {
+        var buckets = new Dictionary<(int X, int Y), List<FoodSource>>();
+        foreach (var source in foodSources)
+        {
+            var key = (ToBucketIndex(source.Position.X), ToBucketIndex(source.Position.Y));
+            if (!buckets.TryGetValue(key, out var bucket))
+            {
+                bucket = [];
+                buckets[key] = bucket;
+            }
+
+            bucket.Add(source);
+        }
+
+        return buckets;
+    }
+
+    private static double GetMaximumFoodEffectiveRadius(IReadOnlyList<FoodSource> foodSources)
+    {
+        var maxRadius = 0.0;
+        foreach (var source in foodSources)
+            maxRadius = Math.Max(maxRadius, source.EffectiveRadius);
+
+        return maxRadius;
+    }
+
+    private static int ToBucketIndex(double coordinate) =>
+        (int)Math.Floor(coordinate / FoodBucketSize);
 }

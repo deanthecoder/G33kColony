@@ -10,6 +10,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using DTC.Core;
 
 namespace G33kColony.Models;
@@ -56,7 +57,10 @@ public sealed class Colony
     private const double RespawnChancePerTick = 0.06;
     private const int SpawnPositionAttempts = 24;
     private const int PheromoneDropInterval = 4;
+    private const double AntInteractionRadius = AntRadius * 4;
+    private const double AntBucketSize = AntInteractionRadius;
     private readonly List<Ant> m_ants;
+    private readonly Dictionary<(int X, int Y), List<Ant>> m_antBuckets = [];
     private readonly Random m_random;
     private readonly World m_world;
     private double m_turnChance = 0.55;
@@ -76,6 +80,8 @@ public sealed class Colony
 
         for (var i = 0; i < antCount; i++)
             AddAntSlotAtNest();
+
+        RebuildAntBuckets();
     }
 
     public IReadOnlyList<Ant> Ants => m_ants;
@@ -132,19 +138,23 @@ public sealed class Colony
 
     public void Tick()
     {
-        foreach (var ant in m_ants)
+        RebuildAntBuckets();
+        var precomputedScents = PrecomputeScentSamples();
+
+        for (var i = 0; i < m_ants.Count; i++)
         {
+            var ant = m_ants[i];
             if (!ant.IsAlive)
             {
                 RespawnAnt(ant);
                 continue;
             }
 
-            Wander(ant);
+            Wander(ant, precomputedScents[i], true);
         }
     }
 
-    private void Wander(Ant ant)
+    private void Wander(Ant ant, ScentSample precomputedScent, bool hasPrecomputedScent)
     {
         var resetLifeThisTick = false;
 
@@ -176,7 +186,9 @@ public sealed class Colony
                 SteerTowardDesired(ant, home.Position);
             else
             {
-                scent = SampleScent(ant);
+                scent = hasPrecomputedScent
+                    ? precomputedScent
+                    : SampleScent(ant);
                 if (TryApplyWeightedScentSteering(ant, scent))
                     isFollowingScent = true;
             }
@@ -241,6 +253,31 @@ public sealed class Colony
         ant.CountStep();
     }
 
+    private ScentSample[] PrecomputeScentSamples()
+    {
+        var precomputed = new ScentSample[m_ants.Count];
+        if (m_ants.Count < 32)
+        {
+            for (var i = 0; i < m_ants.Count; i++)
+            {
+                var ant = m_ants[i];
+                if (ant.IsAlive && !ant.IsInLaunchPhase)
+                    precomputed[i] = SampleScent(ant);
+            }
+
+            return precomputed;
+        }
+
+        Parallel.For(0, m_ants.Count, i =>
+        {
+            var ant = m_ants[i];
+            if (ant.IsAlive && !ant.IsInLaunchPhase)
+                precomputed[i] = SampleScent(ant);
+        });
+
+        return precomputed;
+    }
+
     private void DepositPheromone(Ant ant)
     {
         var pheromones = ant.State == AntState.Searching
@@ -260,6 +297,7 @@ public sealed class Colony
 
     private void MoveForward(Ant ant)
     {
+        var currentPosition = ant.Position;
         var movementX = ant.DirectionX;
         var movementY = ant.DirectionY;
         ApplyNeighbourRepulsion(ant, ref movementX, ref movementY);
@@ -277,7 +315,7 @@ public sealed class Colony
         if (!m_world.Contains(next))
         {
             ant.Turn(Math.PI);
-            next = ant.Position.WithDelta(ant.DirectionX * ant.Speed, ant.DirectionY * ant.Speed);
+            next = currentPosition.WithDelta(ant.DirectionX * ant.Speed, ant.DirectionY * ant.Speed);
         }
 
         ant.MoveTo(m_world.Clamp(next));
@@ -287,33 +325,48 @@ public sealed class Colony
     {
         var separationX = 0.0;
         var separationY = 0.0;
-        var interactionRadius = AntRadius * 4;
-        var interactionRadiusSquared = interactionRadius * interactionRadius;
+        var antPosition = ant.Position;
+        var antX = antPosition.X;
+        var antY = antPosition.Y;
+        var interactionRadiusSquared = AntInteractionRadius * AntInteractionRadius;
+        var antBucket = GetAntBucketKey(antPosition);
+        var bucketRange = (int)Math.Ceiling(AntInteractionRadius / AntBucketSize);
 
-        foreach (var other in m_ants)
+        for (var bucketY = antBucket.Y - bucketRange; bucketY <= antBucket.Y + bucketRange; bucketY++)
         {
-            if (!other.IsAlive || ReferenceEquals(other, ant))
-                continue;
-
-            var deltaX = ant.Position.X - other.Position.X;
-            var deltaY = ant.Position.Y - other.Position.Y;
-            var distanceSquared = deltaX * deltaX + deltaY * deltaY;
-            if (distanceSquared > interactionRadiusSquared)
-                continue;
-
-            if (distanceSquared <= double.Epsilon)
+            for (var bucketX = antBucket.X - bucketRange; bucketX <= antBucket.X + bucketRange; bucketX++)
             {
-                var jitter = CreateRandomHeadingRadians();
-                deltaX = Math.Cos(jitter);
-                deltaY = Math.Sin(jitter);
-                distanceSquared = 1;
-            }
+                if (!m_antBuckets.TryGetValue((bucketX, bucketY), out var bucket))
+                    continue;
 
-            var distance = Math.Sqrt(distanceSquared);
-            var overlap = Math.Max(0, interactionRadius - distance) / interactionRadius;
-            var force = overlap * overlap;
-            separationX += deltaX / distance * force;
-            separationY += deltaY / distance * force;
+                for (var i = 0; i < bucket.Count; i++)
+                {
+                    var other = bucket[i];
+                    if (!other.IsAlive || ReferenceEquals(other, ant))
+                        continue;
+
+                    var otherPosition = other.Position;
+                    var deltaX = antX - otherPosition.X;
+                    var deltaY = antY - otherPosition.Y;
+                    var distanceSquared = deltaX * deltaX + deltaY * deltaY;
+                    if (distanceSquared > interactionRadiusSquared)
+                        continue;
+
+                    if (distanceSquared <= double.Epsilon)
+                    {
+                        var jitter = CreateRandomHeadingRadians();
+                        deltaX = Math.Cos(jitter);
+                        deltaY = Math.Sin(jitter);
+                        distanceSquared = 1;
+                    }
+
+                    var distance = Math.Sqrt(distanceSquared);
+                    var overlap = Math.Max(0, AntInteractionRadius - distance) / AntInteractionRadius;
+                    var force = overlap * overlap;
+                    separationX += deltaX / distance * force;
+                    separationY += deltaY / distance * force;
+                }
+            }
         }
 
         var separationLengthSquared = separationX * separationX + separationY * separationY;
@@ -518,23 +571,13 @@ public sealed class Colony
         ref bool hasFood)
     {
         var samplePosition = GetSamplePosition(ant, angleOffset);
-        foreach (var source in m_world.FoodSources)
-        {
-            if (source.IsDepleted)
-                continue;
-
-            var detectionRadius = SensorRadius + source.Radius;
-            if (source.Position.DistanceSquared(samplePosition) > detectionRadius * detectionRadius)
-                continue;
-
-            var distanceSquared = source.Position.DistanceSquared(ant.Position);
-            if (hasFood && distanceSquared >= selectedDistanceSquared)
-                continue;
-
-            selectedPosition = source.Position;
-            selectedDistanceSquared = distanceSquared;
-            hasFood = true;
-        }
+        m_world.ConsiderNearbyFood(
+            samplePosition,
+            ant.Position,
+            SensorRadius,
+            ref selectedPosition,
+            ref selectedDistanceSquared,
+            ref hasFood);
     }
 
     private HomeSample SampleHome(Ant ant)
@@ -605,6 +648,36 @@ public sealed class Colony
 
         return TurnChance / (1 + Math.Max(1, scent.SelectedStrength) * 8);
     }
+
+    private void RebuildAntBuckets()
+    {
+        m_antBuckets.Clear();
+        foreach (var ant in m_ants)
+        {
+            if (!ant.IsAlive)
+                continue;
+
+            AddAntToBucket(ant);
+        }
+    }
+
+    private void AddAntToBucket(Ant ant)
+    {
+        if (!ant.IsAlive)
+            return;
+
+        var key = GetAntBucketKey(ant.Position);
+        if (!m_antBuckets.TryGetValue(key, out var bucket))
+        {
+            bucket = [];
+            m_antBuckets[key] = bucket;
+        }
+
+        bucket.Add(ant);
+    }
+
+    private static (int X, int Y) GetAntBucketKey(WorldPoint position) =>
+        ((int)Math.Floor(position.X / AntBucketSize), (int)Math.Floor(position.Y / AntBucketSize));
 
     private bool IsFirstAnt(Ant ant) =>
         m_ants.Count > 0 && ReferenceEquals(m_ants[0], ant);

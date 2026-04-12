@@ -39,13 +39,17 @@ public sealed class PheromoneField
     {
         if (radius <= 0)
             throw new ArgumentOutOfRangeException(nameof(radius), "Radius must be greater than zero.");
+        if (m_blobs.Count == 0)
+            return 0;
 
         var total = 0f;
+        var sampleX = position.X;
+        var sampleY = position.Y;
         var radiusSquared = radius * radius;
-        var minBucketX = GetBucketCoordinate(position.X - radius);
-        var maxBucketX = GetBucketCoordinate(position.X + radius);
-        var minBucketY = GetBucketCoordinate(position.Y - radius);
-        var maxBucketY = GetBucketCoordinate(position.Y + radius);
+        var minBucketX = GetBucketCoordinate(sampleX - radius);
+        var maxBucketX = GetBucketCoordinate(sampleX + radius);
+        var minBucketY = GetBucketCoordinate(sampleY - radius);
+        var maxBucketY = GetBucketCoordinate(sampleY + radius);
 
         for (var bucketY = minBucketY; bucketY <= maxBucketY; bucketY++)
         for (var bucketX = minBucketX; bucketX <= maxBucketX; bucketX++)
@@ -56,7 +60,10 @@ public sealed class PheromoneField
             for (var i = 0; i < bucket.Count; i++)
             {
                 var blob = bucket[i];
-                if (blob.Position.DistanceSquared(position) <= radiusSquared)
+                var blobPosition = blob.Position;
+                var deltaX = blobPosition.X - sampleX;
+                var deltaY = blobPosition.Y - sampleY;
+                if (deltaX * deltaX + deltaY * deltaY <= radiusSquared)
                     total += blob.Strength;
             }
         }
@@ -68,15 +75,22 @@ public sealed class PheromoneField
     {
         if (radius <= 0)
             throw new ArgumentOutOfRangeException(nameof(radius), "Radius must be greater than zero.");
+        if (m_blobs.Count == 0)
+        {
+            selectedBlob = null;
+            return false;
+        }
 
         selectedBlob = null;
         var selectedStrength = 0f;
         var selectedDistanceSquared = double.MaxValue;
+        var sampleX = position.X;
+        var sampleY = position.Y;
         var radiusSquared = radius * radius;
-        var minBucketX = GetBucketCoordinate(position.X - radius);
-        var maxBucketX = GetBucketCoordinate(position.X + radius);
-        var minBucketY = GetBucketCoordinate(position.Y - radius);
-        var maxBucketY = GetBucketCoordinate(position.Y + radius);
+        var minBucketX = GetBucketCoordinate(sampleX - radius);
+        var maxBucketX = GetBucketCoordinate(sampleX + radius);
+        var minBucketY = GetBucketCoordinate(sampleY - radius);
+        var maxBucketY = GetBucketCoordinate(sampleY + radius);
 
         for (var bucketY = minBucketY; bucketY <= maxBucketY; bucketY++)
         for (var bucketX = minBucketX; bucketX <= maxBucketX; bucketX++)
@@ -87,7 +101,10 @@ public sealed class PheromoneField
             for (var i = 0; i < bucket.Count; i++)
             {
                 var blob = bucket[i];
-                var distanceSquared = blob.Position.DistanceSquared(position);
+                var blobPosition = blob.Position;
+                var deltaX = blobPosition.X - sampleX;
+                var deltaY = blobPosition.Y - sampleY;
+                var distanceSquared = deltaX * deltaX + deltaY * deltaY;
                 if (distanceSquared <= double.Epsilon || distanceSquared > radiusSquared)
                     continue;
 
