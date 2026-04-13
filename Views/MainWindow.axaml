@@ -189,7 +189,7 @@
                        Text="{Binding AntCount, StringFormat=N0}" />
             <Slider Grid.Row="1"
                     Grid.ColumnSpan="2" Grid.Column="0"
-                    Minimum="{Binding AntCountMinimum}"
+                    Minimum="1"
                     Maximum="{Binding AntCountMaximum}"
                     TickFrequency="1"
                     IsSnapToTickEnabled="True"

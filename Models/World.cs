@@ -341,7 +341,7 @@ public sealed class World
         maxY = ToBucketIndex(position.Y + lookupRadius);
     }
 
-    private Dictionary<(int X, int Y), List<FoodSource>> BuildFoodBuckets(IReadOnlyList<FoodSource> foodSources)
+    private static Dictionary<(int X, int Y), List<FoodSource>> BuildFoodBuckets(IReadOnlyList<FoodSource> foodSources)
     {
         var buckets = new Dictionary<(int X, int Y), List<FoodSource>>();
         foreach (var source in foodSources)

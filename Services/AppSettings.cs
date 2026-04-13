@@ -18,7 +18,6 @@ namespace G33kColony.Services;
 /// </summary>
 internal sealed class AppSettings : UserSettingsBase, IAppSettings
 {
-    public const int MinimumAntCount = 1;
     public const int MaximumAntCount = 2000;
     public const int DefaultAntCount = 500;
     public const int DefaultAntMaximumLife = 700;

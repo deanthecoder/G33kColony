@@ -60,27 +60,7 @@ public sealed class PheromoneField
 
         var centerX = ToGridX(position.X);
         var centerY = ToGridY(position.Y);
-        var radiusInCells = Math.Max(1, (int)Math.Ceiling(radius / m_cellSize));
-        var radiusSquared = radius * radius;
-        var minX = Math.Max(0, centerX - radiusInCells);
-        var maxX = Math.Min(m_gridWidth - 1, centerX + radiusInCells);
-        var minY = Math.Max(0, centerY - radiusInCells);
-        var maxY = Math.Min(m_gridHeight - 1, centerY + radiusInCells);
-
-        for (var y = minY; y <= maxY; y++)
-        for (var x = minX; x <= maxX; x++)
-        {
-            var cellCenter = GetCellCenter(x, y);
-            var deltaX = cellCenter.X - position.X;
-            var deltaY = cellCenter.Y - position.Y;
-            var distanceSquared = deltaX * deltaX + deltaY * deltaY;
-            if (distanceSquared > radiusSquared)
-                continue;
-
-            var distance = Math.Sqrt(distanceSquared);
-            var weight = Math.Max(0.1f, (float)(1 - distance / radius));
-            m_grid[y * m_gridWidth + x] += strength * weight;
-        }
+        m_grid[centerY * m_gridWidth + centerX] += strength;
     }
 
     public float SampleTotal(WorldPoint position, double radius)
