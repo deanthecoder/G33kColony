@@ -28,6 +28,7 @@ internal sealed class AppSettings : UserSettingsBase, IAppSettings
     public const double DefaultPheromoneDepositAmount = 4.0;
     public const double DefaultTurnChance = 0.5;
     public const double DefaultRandomTurnDegrees = 20.0;
+    public const double DefaultFoodTrailIgnoreChance = 0.03;
     public const bool DefaultIsHomePheromoneVisible = false;
     public const bool DefaultIsFoodPheromoneVisible = false;
     public const bool DefaultIsSensorOverlayVisible = false;
@@ -59,6 +60,12 @@ internal sealed class AppSettings : UserSettingsBase, IAppSettings
     }
 
     public double RandomTurnDegrees
+    {
+        get => Get<double>();
+        set => Set(value);
+    }
+
+    public double FoodTrailIgnoreChance
     {
         get => Get<double>();
         set => Set(value);
@@ -116,6 +123,7 @@ internal sealed class AppSettings : UserSettingsBase, IAppSettings
         PheromoneDepositAmount = DefaultPheromoneDepositAmount;
         TurnChance = DefaultTurnChance;
         RandomTurnDegrees = DefaultRandomTurnDegrees;
+        FoodTrailIgnoreChance = DefaultFoodTrailIgnoreChance;
         StepsPerTick = DefaultStepsPerTick;
         AntCount = DefaultAntCount;
         AntMaximumLife = DefaultAntMaximumLife;

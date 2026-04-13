@@ -28,7 +28,6 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
     private World m_world;
     private Colony m_colony;
     private int m_frameNumber;
-    private long? m_foodCompletionTick;
     private int m_antCount = AppSettings.DefaultAntCount;
     private int m_antMaximumLife = AppSettings.DefaultAntMaximumLife;
     private int m_foodSourceCount = AppSettings.DefaultFoodSourceCount;
@@ -36,6 +35,7 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
     private double m_pheromoneDecayRate = AppSettings.DefaultPheromoneDecayRate;
     private double m_turnChance = AppSettings.DefaultTurnChance;
     private double m_randomTurnDegrees = AppSettings.DefaultRandomTurnDegrees;
+    private double m_foodTrailIgnoreChance = AppSettings.DefaultFoodTrailIgnoreChance;
     private double m_pheromoneDepositAmount = AppSettings.DefaultPheromoneDepositAmount;
     private bool m_isHomePheromoneVisible = AppSettings.DefaultIsHomePheromoneVisible;
     private bool m_isFoodPheromoneVisible = AppSettings.DefaultIsFoodPheromoneVisible;
@@ -147,6 +147,21 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
         }
     }
 
+    public double FoodTrailIgnoreChance
+    {
+        get => m_foodTrailIgnoreChance;
+        set
+        {
+            if (SetField(ref m_foodTrailIgnoreChance, Math.Clamp(value, 0, 0.35)))
+            {
+                OnPropertyChanged(nameof(FoodTrailIgnoreChancePercent));
+                ApplyColonySettings();
+            }
+        }
+    }
+
+    public double FoodTrailIgnoreChancePercent => FoodTrailIgnoreChance * 100;
+
     public int StepsPerTick
     {
         get => m_stepsPerTick;
@@ -219,19 +234,14 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
 
     public long WorldTickCount { get; private set; }
 
-    public string FoodCompletionTickText => m_foodCompletionTick?.ToString("N0") ?? "N/A";
-
     public void Tick()
     {
         for (var i = 0; i < StepsPerTick; i++)
         {
             Colony.Tick();
-            if (m_foodCompletionTick.HasValue)
-                continue;
             
-            WorldTickCount++;
-            if (!World.HasFoodRemaining)
-                m_foodCompletionTick = WorldTickCount;
+            if (World.FoodRemaining > 0)
+                WorldTickCount++;
         }
 
         World.Tick((float)(1 - PheromoneDecayRate));
@@ -239,7 +249,6 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(FoodReturnedHomeCount));
         OnPropertyChanged(nameof(FoodRemaining));
         OnPropertyChanged(nameof(WorldTickCount));
-        OnPropertyChanged(nameof(FoodCompletionTickText));
         FrameNumber++;
     }
 
@@ -252,13 +261,11 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
             GetCurrentSeed());
         Colony = new Colony(World, AntCount, GetCurrentSeed());
         WorldTickCount = 0;
-        m_foodCompletionTick = null;
         ApplyColonySettings();
         OnPropertyChanged(nameof(FoodFoundCount));
         OnPropertyChanged(nameof(FoodReturnedHomeCount));
         OnPropertyChanged(nameof(FoodRemaining));
         OnPropertyChanged(nameof(WorldTickCount));
-        OnPropertyChanged(nameof(FoodCompletionTickText));
     }
 
     private void NewSeed()
@@ -304,6 +311,7 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
 
         Colony.TurnChance = TurnChance;
         Colony.MaximumRandomTurnRadians = RandomTurnDegrees * Math.PI / 180;
+        Colony.FoodTrailIgnoreChance = FoodTrailIgnoreChance;
         Colony.PheromoneDepositAmount = (float)PheromoneDepositAmount;
         Colony.AntMaximumLife = AntMaximumLife;
     }
@@ -317,6 +325,7 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
         m_pheromoneDepositAmount = Math.Clamp(settings.PheromoneDepositAmount, 0.1, 8);
         m_turnChance = Math.Clamp(settings.TurnChance, 0, 1);
         m_randomTurnDegrees = Math.Clamp(settings.RandomTurnDegrees, 5, 75);
+        m_foodTrailIgnoreChance = Math.Clamp(settings.FoodTrailIgnoreChance, 0, 0.35);
         m_stepsPerTick = Math.Clamp(settings.StepsPerTick, 1, 6);
         m_antCount = Math.Clamp(settings.AntCount, AppSettings.MinimumAntCount, AppSettings.MaximumAntCount);
         m_antMaximumLife = Math.Clamp(settings.AntMaximumLife, 25, 5000);
@@ -333,6 +342,7 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
         m_pheromoneDepositAmount = AppSettings.DefaultPheromoneDepositAmount;
         m_turnChance = AppSettings.DefaultTurnChance;
         m_randomTurnDegrees = AppSettings.DefaultRandomTurnDegrees;
+        m_foodTrailIgnoreChance = AppSettings.DefaultFoodTrailIgnoreChance;
         m_stepsPerTick = AppSettings.DefaultStepsPerTick;
         m_antCount = AppSettings.DefaultAntCount;
         m_antMaximumLife = AppSettings.DefaultAntMaximumLife;
@@ -352,6 +362,7 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
         m_settings.PheromoneDepositAmount = PheromoneDepositAmount;
         m_settings.TurnChance = TurnChance;
         m_settings.RandomTurnDegrees = RandomTurnDegrees;
+        m_settings.FoodTrailIgnoreChance = FoodTrailIgnoreChance;
         m_settings.StepsPerTick = StepsPerTick;
         m_settings.AntCount = AntCount;
         m_settings.AntMaximumLife = AntMaximumLife;

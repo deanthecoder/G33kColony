@@ -59,6 +59,9 @@ public sealed class Colony
     private const int PheromoneDropInterval = 8;
     private const double AntInteractionRadius = AntRadius * 4;
     private const double AntBucketSize = AntInteractionRadius;
+    private const double FoodTrailIgnoreStrengthScale = 3.2;
+    private const int MinimumFoodTrailIgnoreTicks = 8;
+    private const int MaximumFoodTrailIgnoreTicks = 20;
     private readonly List<Ant> m_ants;
     private readonly Dictionary<(int X, int Y), List<Ant>> m_antBuckets = [];
     private readonly Random m_random;
@@ -67,6 +70,7 @@ public sealed class Colony
     private double m_maximumRandomTurnRadians = DefaultMaximumRandomTurnRadians;
     private float m_pheromoneDepositAmount = 2.4f;
     private int m_antMaximumLife = 1000;
+    private double m_foodTrailIgnoreChance = 0.03;
     private bool m_hasFirstAntFoundFood;
 
     public Colony(World world, int antCount, int randomSeed = 1)
@@ -117,6 +121,12 @@ public sealed class Colony
             foreach (var ant in m_ants)
                 ant.ResetLife(CreateAntMaximumLife());
         }
+    }
+
+    public double FoodTrailIgnoreChance
+    {
+        get => m_foodTrailIgnoreChance;
+        set => m_foodTrailIgnoreChance = Math.Clamp(value, 0, 0.35);
     }
 
     public int FoodFoundCount { get; private set; }
@@ -189,7 +199,11 @@ public sealed class Colony
                 scent = hasPrecomputedScent
                     ? precomputedScent
                     : SampleScent(ant);
-                if (TryApplyWeightedScentSteering(ant, scent))
+                if (ShouldIgnoreFoodTrail(ant, scent))
+                {
+                    ant.AdvanceFoodTrailIgnore();
+                }
+                else if (TryApplyWeightedScentSteering(ant, scent))
                     isFollowingScent = true;
             }
         }
@@ -544,6 +558,21 @@ public sealed class Colony
         totalY += Math.Sin(heading) * strength;
     }
 
+    private bool ShouldIgnoreFoodTrail(Ant ant, ScentSample scent)
+    {
+        if (ant.IsIgnoringFoodTrail)
+            return true;
+        if (!scent.HasSignal || FoodTrailIgnoreChance <= 0)
+            return false;
+
+        var effectiveChance = FoodTrailIgnoreChance / (1 + Math.Max(0, scent.SelectedStrength) * FoodTrailIgnoreStrengthScale);
+        if (m_random.NextDouble() >= effectiveChance)
+            return false;
+
+        ant.StartIgnoringFoodTrail(CreateFoodTrailIgnoreTicks());
+        return true;
+    }
+
     private static void SteerTowardDesired(Ant ant, WorldPoint target)
     {
         ant.SetDesiredDirection(target.X - ant.Position.X, target.Y - ant.Position.Y);
@@ -724,6 +753,9 @@ public sealed class Colony
 
         return CreateRandomHeadingRadians();
     }
+
+    private int CreateFoodTrailIgnoreTicks() =>
+        m_random.Next(MinimumFoodTrailIgnoreTicks, MaximumFoodTrailIgnoreTicks + 1);
 
     private static PheromoneTarget SampleNearbyPheromoneTarget(WorldPoint position, PheromoneField pheromones)
     {

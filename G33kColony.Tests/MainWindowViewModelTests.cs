@@ -65,6 +65,7 @@ public class MainWindowViewModelTests
             PheromoneDepositAmount = 3.5,
             TurnChance = 0.25,
             RandomTurnDegrees = 18,
+            FoodTrailIgnoreChance = 0.12,
             IsHomePheromoneVisible = false,
             IsFoodPheromoneVisible = false,
             IsSensorOverlayVisible = true
@@ -81,6 +82,7 @@ public class MainWindowViewModelTests
         Assert.That(viewModel.PheromoneDepositAmount, Is.EqualTo(3.5));
         Assert.That(viewModel.TurnChance, Is.EqualTo(0.25));
         Assert.That(viewModel.RandomTurnDegrees, Is.EqualTo(18));
+        Assert.That(viewModel.FoodTrailIgnoreChance, Is.EqualTo(0.12));
         Assert.That(viewModel.IsHomePheromoneVisible, Is.False);
         Assert.That(viewModel.IsFoodPheromoneVisible, Is.False);
         Assert.That(viewModel.IsSensorOverlayVisible, Is.True);
@@ -103,6 +105,7 @@ public class MainWindowViewModelTests
             PheromoneDepositAmount = 4.5,
             TurnChance = 0.75,
             RandomTurnDegrees = 44,
+            FoodTrailIgnoreChance = 0.2,
             IsHomePheromoneVisible = false,
             IsFoodPheromoneVisible = false,
             IsSensorOverlayVisible = true
@@ -120,6 +123,7 @@ public class MainWindowViewModelTests
         Assert.That(settings.PheromoneDepositAmount, Is.EqualTo(4.5));
         Assert.That(settings.TurnChance, Is.EqualTo(0.75));
         Assert.That(settings.RandomTurnDegrees, Is.EqualTo(44));
+        Assert.That(settings.FoodTrailIgnoreChance, Is.EqualTo(0.2));
         Assert.That(settings.IsHomePheromoneVisible, Is.False);
         Assert.That(settings.IsFoodPheromoneVisible, Is.False);
         Assert.That(settings.IsSensorOverlayVisible, Is.True);
@@ -138,6 +142,7 @@ public class MainWindowViewModelTests
             PheromoneDepositAmount = 6,
             TurnChance = 0.9,
             RandomTurnDegrees = 65,
+            FoodTrailIgnoreChance = 0.3,
             IsHomePheromoneVisible = false,
             IsFoodPheromoneVisible = false,
             IsSensorOverlayVisible = true
@@ -153,6 +158,7 @@ public class MainWindowViewModelTests
         Assert.That(viewModel.PheromoneDepositAmount, Is.EqualTo(AppSettings.DefaultPheromoneDepositAmount));
         Assert.That(viewModel.TurnChance, Is.EqualTo(AppSettings.DefaultTurnChance));
         Assert.That(viewModel.RandomTurnDegrees, Is.EqualTo(AppSettings.DefaultRandomTurnDegrees));
+        Assert.That(viewModel.FoodTrailIgnoreChance, Is.EqualTo(AppSettings.DefaultFoodTrailIgnoreChance));
         Assert.That(viewModel.IsHomePheromoneVisible, Is.EqualTo(AppSettings.DefaultIsHomePheromoneVisible));
         Assert.That(viewModel.IsFoodPheromoneVisible, Is.EqualTo(AppSettings.DefaultIsFoodPheromoneVisible));
         Assert.That(viewModel.IsSensorOverlayVisible, Is.EqualTo(AppSettings.DefaultIsSensorOverlayVisible));
@@ -196,6 +202,7 @@ public class MainWindowViewModelTests
         viewModel.PheromoneDepositAmount = 4.5;
         viewModel.TurnChance = 0.75;
         viewModel.RandomTurnDegrees = 35;
+        viewModel.FoodTrailIgnoreChance = 0.18;
         viewModel.PheromoneDecayRate = 0.02;
         viewModel.StepsPerTick = 3;
         viewModel.AntMaximumLife = 750;
@@ -203,6 +210,7 @@ public class MainWindowViewModelTests
         Assert.That(viewModel.Colony.PheromoneDepositAmount, Is.EqualTo(4.5f));
         Assert.That(viewModel.Colony.TurnChance, Is.EqualTo(0.75));
         Assert.That(viewModel.Colony.MaximumRandomTurnRadians, Is.EqualTo(35 * Math.PI / 180).Within(0.0001));
+        Assert.That(viewModel.Colony.FoodTrailIgnoreChance, Is.EqualTo(0.18).Within(0.0001));
         Assert.That(viewModel.Colony.AntMaximumLife, Is.EqualTo(750));
         Assert.That(viewModel.PheromoneDecayRate, Is.EqualTo(0.02));
         Assert.That(viewModel.StepsPerTick, Is.EqualTo(3));
@@ -267,6 +275,8 @@ public class MainWindowViewModelTests
         public double TurnChance { get; set; } = AppSettings.DefaultTurnChance;
 
         public double RandomTurnDegrees { get; set; } = AppSettings.DefaultRandomTurnDegrees;
+
+        public double FoodTrailIgnoreChance { get; set; } = AppSettings.DefaultFoodTrailIgnoreChance;
 
         public int StepsPerTick { get; set; } = AppSettings.DefaultStepsPerTick;
 

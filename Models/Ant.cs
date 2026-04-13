@@ -20,6 +20,7 @@ public sealed class Ant
     private double m_desiredHeadingRadians;
     private int m_stepsSincePheromoneDrop;
     private int m_launchTicksRemaining;
+    private int m_foodTrailIgnoreTicksRemaining;
 
     public Ant(WorldPoint position, double directionX, double directionY)
     {
@@ -46,6 +47,8 @@ public sealed class Ant
     public double Speed { get; private set; } = 1;
 
     public bool IsInLaunchPhase => m_launchTicksRemaining > 0;
+
+    public bool IsIgnoringFoodTrail => m_foodTrailIgnoreTicksRemaining > 0;
 
     public bool ShouldDropPheromone(int dropInterval) =>
         m_stepsSincePheromoneDrop % Math.Max(1, dropInterval) == 0;
@@ -77,6 +80,15 @@ public sealed class Ant
             m_launchTicksRemaining--;
     }
 
+    internal void StartIgnoringFoodTrail(int ticks) =>
+        m_foodTrailIgnoreTicksRemaining = Math.Max(0, ticks);
+
+    internal void AdvanceFoodTrailIgnore()
+    {
+        if (m_foodTrailIgnoreTicksRemaining > 0)
+            m_foodTrailIgnoreTicksRemaining--;
+    }
+
     internal void Respawn(WorldPoint position, double headingRadians, int maximumLife, double speed)
     {
         Position = position;
@@ -85,6 +97,7 @@ public sealed class Ant
         m_desiredHeadingRadians = HeadingRadians;
         m_stepsSincePheromoneDrop = 0;
         m_launchTicksRemaining = Colony.LaunchPhaseTicks;
+        m_foodTrailIgnoreTicksRemaining = 0;
         ResetLife(maximumLife);
         SetSpeed(speed);
         IsAlive = true;

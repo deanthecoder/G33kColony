@@ -153,6 +153,20 @@
 
           <Grid RowDefinitions="Auto,Auto"
                 ColumnDefinitions="*,Auto">
+            <TextBlock Text="Ignore trail"
+                       ToolTip.Tip="Base chance an ant briefly ignores pheromone trails. Strong scent reduces this chance." />
+            <TextBlock Grid.Row="0" Grid.Column="1"
+                       Text="{Binding FoodTrailIgnoreChancePercent, StringFormat={}{0:0.0}%}" />
+            <Slider Grid.Row="1"
+                    Grid.ColumnSpan="2" Grid.Column="0"
+                    Minimum="0"
+                    Maximum="0.35"
+                    Value="{Binding FoodTrailIgnoreChance, Mode=TwoWay}"
+                    ToolTip.Tip="Immediate effect. Higher values increase exploration bursts." />
+          </Grid>
+
+          <Grid RowDefinitions="Auto,Auto"
+                ColumnDefinitions="*,Auto">
             <TextBlock Text="Steps per tick"
                        ToolTip.Tip="How many ant movement steps run each timer tick." />
             <TextBlock Grid.Row="0" Grid.Column="1"
@@ -172,7 +186,7 @@
             <TextBlock Text="Ants"
                        ToolTip.Tip="Number of ants in the colony. Changing this restarts the simulation." />
             <TextBlock Grid.Row="0" Grid.Column="1"
-                       Text="{Binding AntCount}" />
+                       Text="{Binding AntCount, StringFormat=N0}" />
             <Slider Grid.Row="1"
                     Grid.ColumnSpan="2" Grid.Column="0"
                     Minimum="{Binding AntCountMinimum}"
@@ -188,7 +202,7 @@
             <TextBlock Text="Ant life"
                        ToolTip.Tip="Maximum movement steps before an ant respawns at the nest." />
             <TextBlock Grid.Row="0" Grid.Column="1"
-                       Text="{Binding AntMaximumLife}" />
+                       Text="{Binding AntMaximumLife, StringFormat=N0}" />
             <Slider Grid.Row="1"
                     Grid.ColumnSpan="2" Grid.Column="0"
                     Minimum="25"
@@ -219,7 +233,7 @@
             <TextBlock Text="Food remains"
                        ToolTip.Tip="Total servings left across all remaining food blobs." />
             <TextBlock Grid.Column="1"
-                       Text="{Binding FoodRemaining}" />
+                       Text="{Binding FoodRemaining, StringFormat=N0}" />
           </Grid>
 
           <Grid ColumnDefinitions="*,Auto">
@@ -227,13 +241,6 @@
                        ToolTip.Tip="Simulation ticks elapsed in the current run." />
             <TextBlock Grid.Column="1"
                        Text="{Binding WorldTickCount, StringFormat=N0}" />
-          </Grid>
-
-          <Grid ColumnDefinitions="*,Auto">
-            <TextBlock Text="Food done at"
-                       ToolTip.Tip="Tick when all food was consumed. '-' means food is still available." />
-            <TextBlock Grid.Column="1"
-                       Text="{Binding FoodCompletionTickText}" />
           </Grid>
         </StackPanel>
       </Border>

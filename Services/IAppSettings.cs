@@ -24,6 +24,8 @@ internal interface IAppSettings : IDisposable
 
     double RandomTurnDegrees { get; set; }
 
+    double FoodTrailIgnoreChance { get; set; }
+
     int StepsPerTick { get; set; }
 
     int AntCount { get; set; }
