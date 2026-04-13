@@ -62,7 +62,7 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
 
         m_timer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromMilliseconds(33)
+            Interval = TimeSpan.FromMilliseconds(15)
         };
         m_timer.Tick += OnTimerTick;
 
