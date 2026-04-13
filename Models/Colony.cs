@@ -181,7 +181,9 @@ public sealed class Colony
             if (isFollowingDetectedFood)
                 SteerTowardDesired(ant, food.Position);
             else if (isFollowingDetectedHome)
+            {
                 SteerTowardDesired(ant, home.Position);
+            }
             else
             {
                 scent = hasPrecomputedScent

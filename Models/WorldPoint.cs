@@ -8,8 +8,6 @@
 // 
 // THE SOFTWARE IS PROVIDED AS IS, WITHOUT WARRANTY OF ANY KIND.
 
-using System;
-
 namespace G33kColony.Models;
 
 /// <summary>
@@ -28,7 +26,4 @@ public readonly record struct WorldPoint(double X, double Y)
         var deltaY = Y - other.Y;
         return deltaX * deltaX + deltaY * deltaY;
     }
-
-    public double Distance(WorldPoint other) =>
-        Math.Sqrt(DistanceSquared(other));
 }

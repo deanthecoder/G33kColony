@@ -28,6 +28,7 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
     private World m_world;
     private Colony m_colony;
     private int m_frameNumber;
+    private long? m_foodCompletionTick;
     private int m_antCount = AppSettings.DefaultAntCount;
     private int m_antMaximumLife = AppSettings.DefaultAntMaximumLife;
     private int m_foodSourceCount = AppSettings.DefaultFoodSourceCount;
@@ -216,15 +217,29 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
 
     public int FoodRemaining => World?.FoodRemaining ?? 0;
 
+    public long WorldTickCount { get; private set; }
+
+    public string FoodCompletionTickText => m_foodCompletionTick?.ToString("N0") ?? "N/A";
+
     public void Tick()
     {
         for (var i = 0; i < StepsPerTick; i++)
+        {
             Colony.Tick();
+            if (m_foodCompletionTick.HasValue)
+                continue;
+            
+            WorldTickCount++;
+            if (!World.HasFoodRemaining)
+                m_foodCompletionTick = WorldTickCount;
+        }
 
         World.Tick((float)(1 - PheromoneDecayRate));
         OnPropertyChanged(nameof(FoodFoundCount));
         OnPropertyChanged(nameof(FoodReturnedHomeCount));
         OnPropertyChanged(nameof(FoodRemaining));
+        OnPropertyChanged(nameof(WorldTickCount));
+        OnPropertyChanged(nameof(FoodCompletionTickText));
         FrameNumber++;
     }
 
@@ -236,10 +251,14 @@ public class MainWindowViewModel : ViewModelBase, IDisposable
             FoodSourceCount,
             GetCurrentSeed());
         Colony = new Colony(World, AntCount, GetCurrentSeed());
+        WorldTickCount = 0;
+        m_foodCompletionTick = null;
         ApplyColonySettings();
         OnPropertyChanged(nameof(FoodFoundCount));
         OnPropertyChanged(nameof(FoodReturnedHomeCount));
         OnPropertyChanged(nameof(FoodRemaining));
+        OnPropertyChanged(nameof(WorldTickCount));
+        OnPropertyChanged(nameof(FoodCompletionTickText));
     }
 
     private void NewSeed()
