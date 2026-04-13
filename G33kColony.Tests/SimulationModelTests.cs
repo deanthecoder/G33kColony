@@ -63,10 +63,12 @@ public class SimulationModelTests
         var pheromones = new PheromoneField();
 
         pheromones.Add(new WorldPoint(5, 5), 4, 10);
+        var beforeEvaporation = pheromones.SampleTotal(new WorldPoint(5, 5), 4);
         pheromones.Evaporate(0.75f);
+        var afterEvaporation = pheromones.SampleTotal(new WorldPoint(5, 5), 4);
 
-        Assert.That(pheromones.Blobs, Has.Count.EqualTo(1));
-        Assert.That(pheromones.SampleTotal(new WorldPoint(5, 5), 4), Is.EqualTo(7.5f));
+        Assert.That(afterEvaporation, Is.GreaterThan(0));
+        Assert.That(afterEvaporation, Is.LessThan(beforeEvaporation));
         Assert.That(pheromones.SampleTotal(new WorldPoint(50, 50), 4), Is.Zero);
     }
 
@@ -552,11 +554,11 @@ public class SimulationModelTests
         }
 
         Assert.That(firstAnt.State, Is.EqualTo(AntState.Searching));
-        Assert.That(world.FoodPheromones.Blobs, Is.Not.Empty);
+        Assert.That(world.FoodPheromones.SampleTotal(world.NestPosition, Colony.NestRadius * 2), Is.GreaterThan(0));
 
-        var trailBlob = FindFoodTrailBlobClosestToNest(world);
-        var (directionX, directionY) = CreateUnitDirection(trailBlob.Position, food.Position);
-        var spawnPosition = world.Clamp(trailBlob.Position.WithDelta(
+        var trailCell = FindFoodTrailCellClosestToNest(world);
+        var (directionX, directionY) = CreateUnitDirection(trailCell, food.Position);
+        var spawnPosition = world.Clamp(trailCell.WithDelta(
             -directionX * Colony.AntRadius,
             -directionY * Colony.AntRadius));
         var secondAnt = colony.AddAnt(spawnPosition, directionX, directionY);
@@ -570,28 +572,36 @@ public class SimulationModelTests
         Assert.That(colony.FoodFoundCount, Is.GreaterThanOrEqualTo(2));
     }
 
-    private static PheromoneBlob FindFoodTrailBlobClosestToNest(World world)
+    private static WorldPoint FindFoodTrailCellClosestToNest(World world)
     {
-        PheromoneBlob result = null;
+        var result = WorldPoint.Zero;
+        var found = false;
         var bestDistanceSquared = double.MaxValue;
+        var field = world.FoodPheromones;
 
-        foreach (var blob in world.FoodPheromones.Blobs)
+        for (var y = 0; y < field.GridHeight; y++)
+        for (var x = 0; x < field.GridWidth; x++)
         {
-            if (world.IsFood(blob.Position) ||
-                blob.Position.DistanceSquared(world.NestPosition) <= Colony.NestRadius * Colony.NestRadius)
+            if (field.GetCellStrength(x, y) <= 0)
+                continue;
+
+            var position = field.GetCellCenter(x, y);
+            if (world.IsFood(position) ||
+                position.DistanceSquared(world.NestPosition) <= Colony.NestRadius * Colony.NestRadius)
             {
                 continue;
             }
 
-            var distanceSquared = blob.Position.DistanceSquared(world.NestPosition);
+            var distanceSquared = position.DistanceSquared(world.NestPosition);
             if (distanceSquared >= bestDistanceSquared)
                 continue;
 
-            result = blob;
+            found = true;
+            result = position;
             bestDistanceSquared = distanceSquared;
         }
 
-        Assert.That(result, Is.Not.Null);
+        Assert.That(found, Is.True);
         return result;
     }
 

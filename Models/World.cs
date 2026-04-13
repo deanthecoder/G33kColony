@@ -52,8 +52,8 @@ public sealed class World
         Width = width;
         Height = height;
         NestPosition = CreateNestPosition(random);
-        HomePheromones = new PheromoneField();
-        FoodPheromones = new PheromoneField();
+        HomePheromones = new PheromoneField(width, height);
+        FoodPheromones = new PheromoneField(width, height);
         FoodSources = CreateFoodSources(foodSourceCount, random);
         m_foodBuckets = BuildFoodBuckets(FoodSources);
         m_maxFoodEffectiveRadius = GetMaximumFoodEffectiveRadius(FoodSources);

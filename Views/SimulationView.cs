@@ -47,7 +47,9 @@ public sealed class SimulationView : Control
         AvaloniaProperty.Register<SimulationView, int>(nameof(FrameNumber));
 
     private WriteableBitmap m_bitmap;
+    private WriteableBitmap m_pheromoneBitmap;
     private byte[] m_pixels;
+    private byte[] m_pheromonePixels;
     private bool m_isDrawingObstacle;
     private bool m_isErasingObstacle;
 
@@ -122,6 +124,14 @@ public sealed class SimulationView : Control
             m_bitmap,
             new Rect(0, 0, World.Width, World.Height),
             destination);
+
+        if ((ShowHomePheromones || ShowFoodPheromones) && m_pheromoneBitmap != null)
+        {
+            context.DrawImage(
+                m_pheromoneBitmap,
+                new Rect(0, 0, m_pheromoneBitmap.PixelSize.Width, m_pheromoneBitmap.PixelSize.Height),
+                destination);
+        }
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -194,6 +204,7 @@ public sealed class SimulationView : Control
             return;
 
         DrawWorldPixels();
+        DrawPheromoneOverlayPixels();
 
         using var framebuffer = m_bitmap.Lock();
         var sourceRowBytes = World.Width * 4;
@@ -220,6 +231,7 @@ public sealed class SimulationView : Control
             m_bitmap.PixelSize.Width == World.Width &&
             m_bitmap.PixelSize.Height == World.Height)
         {
+            EnsurePheromoneBitmap();
             return;
         }
 
@@ -230,13 +242,17 @@ public sealed class SimulationView : Control
             new Vector(96, 96),
             PixelFormats.Bgra8888,
             AlphaFormat.Opaque);
+        EnsurePheromoneBitmap();
     }
 
     private void ResetBitmap()
     {
         m_bitmap?.Dispose();
+        m_pheromoneBitmap?.Dispose();
         m_bitmap = null;
+        m_pheromoneBitmap = null;
         m_pixels = null;
+        m_pheromonePixels = null;
     }
 
     private void DrawWorldPixels()
@@ -244,17 +260,59 @@ public sealed class SimulationView : Control
         for (var i = 0; i < World.Width * World.Height; i++)
             SetPixel(i, 18, 18, 18);
 
-        if (ShowHomePheromones)
-            DrawPheromones(World.HomePheromones, 1.0, 0.32, 0.32);
-
-        if (ShowFoodPheromones)
-            DrawPheromones(World.FoodPheromones, 1.0, 0.82, 0.28);
-
         DrawObstacles();
         DrawFoodSources();
         DrawNest();
         DrawSensorOverlay();
         DrawAnts();
+    }
+
+    private void EnsurePheromoneBitmap()
+    {
+        var gridWidth = World.HomePheromones.GridWidth;
+        var gridHeight = World.HomePheromones.GridHeight;
+        if (m_pheromoneBitmap != null &&
+            m_pheromoneBitmap.PixelSize.Width == gridWidth &&
+            m_pheromoneBitmap.PixelSize.Height == gridHeight)
+        {
+            return;
+        }
+
+        m_pheromoneBitmap?.Dispose();
+        m_pheromonePixels = new byte[gridWidth * gridHeight * 4];
+        m_pheromoneBitmap = new WriteableBitmap(
+            new PixelSize(gridWidth, gridHeight),
+            new Vector(96, 96),
+            PixelFormats.Bgra8888,
+            AlphaFormat.Unpremul);
+    }
+
+    private void DrawPheromoneOverlayPixels()
+    {
+        if (m_pheromoneBitmap == null || m_pheromonePixels == null)
+            return;
+
+        Array.Clear(m_pheromonePixels, 0, m_pheromonePixels.Length);
+        if (ShowHomePheromones)
+            DrawPheromoneGrid(World.HomePheromones, 1.0, 0.32, 0.32);
+
+        if (ShowFoodPheromones)
+            DrawPheromoneGrid(World.FoodPheromones, 1.0, 0.82, 0.28);
+
+        using var framebuffer = m_pheromoneBitmap.Lock();
+        var sourceRowBytes = m_pheromoneBitmap.PixelSize.Width * 4;
+        if (framebuffer.RowBytes == sourceRowBytes)
+        {
+            Marshal.Copy(m_pheromonePixels, 0, framebuffer.Address, m_pheromonePixels.Length);
+            return;
+        }
+
+        for (var y = 0; y < m_pheromoneBitmap.PixelSize.Height; y++)
+        {
+            var sourceOffset = y * sourceRowBytes;
+            var target = IntPtr.Add(framebuffer.Address, y * framebuffer.RowBytes);
+            Marshal.Copy(m_pheromonePixels, sourceOffset, target, sourceRowBytes);
+        }
     }
 
     private void DrawObstacles()
@@ -274,14 +332,18 @@ public sealed class SimulationView : Control
         }
     }
 
-    private void DrawPheromones(PheromoneField pheromones, double redScale, double greenScale, double blueScale)
+    private void DrawPheromoneGrid(PheromoneField pheromones, double redScale, double greenScale, double blueScale)
     {
-        foreach (var blob in pheromones.Blobs)
+        for (var y = 0; y < pheromones.GridHeight; y++)
+        for (var x = 0; x < pheromones.GridWidth; x++)
         {
-            var intensity = ScalePheromone(blob.Strength);
-            AddCircle(
-                blob.Position,
-                blob.Radius,
+            var strength = pheromones.GetCellStrength(x, y);
+            if (strength <= 0)
+                continue;
+
+            var intensity = ScalePheromone(strength);
+            AddOverlayPixel(
+                y * pheromones.GridWidth + x,
                 (int)(intensity * redScale),
                 (int)(intensity * greenScale),
                 (int)(intensity * blueScale));
@@ -513,6 +575,15 @@ public sealed class SimulationView : Control
         m_pixels[byteIndex] = (byte)Math.Min(255, m_pixels[byteIndex] + blue);
         m_pixels[byteIndex + 1] = (byte)Math.Min(255, m_pixels[byteIndex + 1] + green);
         m_pixels[byteIndex + 2] = (byte)Math.Min(255, m_pixels[byteIndex + 2] + red);
+    }
+
+    private void AddOverlayPixel(int pixelIndex, int red, int green, int blue)
+    {
+        var byteIndex = pixelIndex * 4;
+        m_pheromonePixels[byteIndex] = (byte)Math.Min(255, m_pheromonePixels[byteIndex] + blue);
+        m_pheromonePixels[byteIndex + 1] = (byte)Math.Min(255, m_pheromonePixels[byteIndex + 1] + green);
+        m_pheromonePixels[byteIndex + 2] = (byte)Math.Min(255, m_pheromonePixels[byteIndex + 2] + red);
+        m_pheromonePixels[byteIndex + 3] = (byte)Math.Min(220, m_pheromonePixels[byteIndex + 3] + 90);
     }
 
     private static int ClampByte(float value) =>

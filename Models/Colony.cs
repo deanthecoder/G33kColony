@@ -50,7 +50,7 @@ public sealed class Colony
     public const double SensorAngleRadians = Math.PI / 4;
 
     private const double DefaultStepDistance = 1.4;
-    private const double PheromoneBlobRadius = 2.5;
+    private const double PheromoneDepositRadius = 2.5;
     private const double MaximumHeadingTurnRadians = Math.PI / 9;
     private const double AntVariationFraction = 0.4;
     private const double MinimumPheromoneStrengthFraction = 0.15;
@@ -298,7 +298,7 @@ public sealed class Colony
             ? m_world.HomePheromones
             : m_world.FoodPheromones;
 
-        pheromones.Add(ant.Position, PheromoneBlobRadius, GetPheromoneDepositAmount(ant));
+        pheromones.Add(ant.Position, PheromoneDepositRadius, GetPheromoneDepositAmount(ant));
     }
 
     private float GetPheromoneDepositAmount(Ant ant)
@@ -747,23 +747,15 @@ public sealed class Colony
 
     private double CreateSpawnHeadingRadians(WorldPoint position)
     {
-        var target = SampleNearbyPheromoneTarget(position, m_world.FoodPheromones);
-        if (target.HasTarget)
-            return Math.Atan2(target.Position.Y - position.Y, target.Position.X - position.X);
+        const double detectionRadius = SensorDistance + SensorRadius + PheromoneDepositRadius;
+        if (m_world.FoodPheromones.TryFindStrongestPosition(position, detectionRadius, out var target))
+            return Math.Atan2(target.Y - position.Y, target.X - position.X);
 
         return CreateRandomHeadingRadians();
     }
 
     private int CreateFoodTrailIgnoreTicks() =>
         m_random.Next(MinimumFoodTrailIgnoreTicks, MaximumFoodTrailIgnoreTicks + 1);
-
-    private static PheromoneTarget SampleNearbyPheromoneTarget(WorldPoint position, PheromoneField pheromones)
-    {
-        const double detectionRadius = SensorDistance + SensorRadius + PheromoneBlobRadius;
-        return pheromones.TryFindStrongest(position, detectionRadius, out var blob)
-            ? new PheromoneTarget(blob.Position, true)
-            : new PheromoneTarget(WorldPoint.Zero, false);
-    }
 
     private readonly record struct ScentSample(
         float SelectedStrength,
@@ -776,5 +768,4 @@ public sealed class Colony
 
     private readonly record struct HomeSample(WorldPoint Position, bool HasHome);
 
-    private readonly record struct PheromoneTarget(WorldPoint Position, bool HasTarget);
 }
