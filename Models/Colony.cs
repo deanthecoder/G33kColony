@@ -11,7 +11,6 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using DTC.Core;
 
 namespace G33kColony.Models;
 
@@ -71,7 +70,6 @@ public sealed class Colony
     private float m_pheromoneDepositAmount = 2.4f;
     private int m_antMaximumLife = 1000;
     private double m_foodTrailIgnoreChance = 0.03;
-    private bool m_hasFirstAntFoundFood;
 
     public Colony(World world, int antCount, int randomSeed = 1)
     {
@@ -235,12 +233,6 @@ public sealed class Colony
             FoodFoundCount++;
             ant.RefreshLife();
             resetLifeThisTick = true;
-
-            if (IsFirstAnt(ant) && !m_hasFirstAntFoundFood)
-            {
-                m_hasFirstAntFoundFood = true;
-                Logger.Instance.Info($"First ant found food at {FormatPoint(ant.Position)}; nest={FormatPoint(m_world.NestPosition)}.");
-            }
         }
         else if (ant.State == AntState.Returning && ant.Position.DistanceSquared(m_world.NestPosition) <= Math.Pow(NestRadius + AntRadius, 2))
         {
@@ -733,12 +725,6 @@ public sealed class Colony
     private static (int X, int Y) GetAntBucketKey(WorldPoint position) =>
         ((int)Math.Floor(position.X / AntBucketSize), (int)Math.Floor(position.Y / AntBucketSize));
 
-    private bool IsFirstAnt(Ant ant) =>
-        m_ants.Count > 0 && ReferenceEquals(m_ants[0], ant);
-    
-    private static string FormatPoint(WorldPoint point) =>
-        $"({point.X:0.##},{point.Y:0.##})";
-
     private double CreateRandomTurnRadians() =>
         (m_random.NextDouble() * 2 - 1) * MaximumRandomTurnRadians;
 
@@ -767,5 +753,4 @@ public sealed class Colony
     private readonly record struct FoodSample(WorldPoint Position, bool HasFood);
 
     private readonly record struct HomeSample(WorldPoint Position, bool HasHome);
-
 }
