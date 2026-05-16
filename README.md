@@ -1,4 +1,5 @@
 [![Twitter URL](https://img.shields.io/twitter/url/https/twitter.com/deanthecoder.svg?style=social&label=Follow%20%40deanthecoder)](https://twitter.com/deanthecoder)
+[![GitHub Repo stars](https://img.shields.io/github/stars/deanthecoder/G33kColony?style=social&label=Star)](https://github.com/deanthecoder/G33kColony/stargazers)
 
 # G33kColony
 A small ant simulation where simple local rules create complex behaviour.
